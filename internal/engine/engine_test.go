@@ -48,6 +48,7 @@ func TestWeakFixtureFindings(t *testing.T) {
 		"KSPECT-LSM-001",     // no major LSM
 		"KSPECT-MODULE-001",  // dccp loaded
 		"KSPECT-MODULE-003",  // tipc loaded
+		"KSPECT-SYSCTL-024",  // ipv6 redirects accepted
 	}
 	for _, id := range expectFail {
 		if f, ok := got[id]; !ok || f.Status != Fail {

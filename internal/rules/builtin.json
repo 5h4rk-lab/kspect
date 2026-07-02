@@ -570,6 +570,30 @@
       ]
     },
     {
+      "id": "KSPECT-SYSCTL-024",
+      "title": "ICMPv6 redirects not accepted",
+      "severity": "medium",
+      "tags": [
+        "sysctl",
+        "network",
+        "server",
+        "container-host"
+      ],
+      "rationale": "Accepting ICMPv6 redirects lets on-path attackers alter IPv6 routing for man-in-the-middle attacks — the IPv6 counterpart of the IPv4 redirect rule; hardening only IPv4 leaves the same attack open over IPv6.",
+      "remediation": "sysctl -w net.ipv6.conf.all.accept_redirects=0 net.ipv6.conf.default.accept_redirects=0",
+      "refs": [
+        "https://docs.kernel.org/networking/ip-sysctl.html"
+      ],
+      "checks": [
+        {
+          "source": "sysctl",
+          "key": "net.ipv6.conf.all.accept_redirects",
+          "op": "equals",
+          "value": "0"
+        }
+      ]
+    },
+    {
       "id": "KSPECT-CMDLINE-001",
       "title": "CPU vulnerability mitigations not globally disabled",
       "severity": "high",
@@ -723,6 +747,37 @@
         {
           "source": "kconfig",
           "key": "CONFIG_INIT_ON_ALLOC_DEFAULT_ON",
+          "op": "equals",
+          "value": "y"
+        }
+      ]
+    },
+    {
+      "id": "KSPECT-CMDLINE-007",
+      "title": "Memory zeroed on free (init_on_free) — hardened profile",
+      "severity": "info",
+      "tags": [
+        "cmdline",
+        "memory-safety",
+        "kspp",
+        "hardened"
+      ],
+      "rationale": "Zeroing freed memory closes use-after-free info leaks and shortens the lifetime of stale secrets in the heap. Costs a few percent of performance, so it is an advisory hardened-profile control rather than a baseline requirement.",
+      "remediation": "Add init_on_free=1 to the kernel command line, or build with CONFIG_INIT_ON_FREE_DEFAULT_ON=y.",
+      "refs": [
+        "https://docs.kernel.org/admin-guide/kernel-parameters.html",
+        "https://kspp.github.io/Recommended_Settings"
+      ],
+      "checks": [
+        {
+          "source": "cmdline",
+          "key": "init_on_free",
+          "op": "equals",
+          "value": "1"
+        },
+        {
+          "source": "kconfig",
+          "key": "CONFIG_INIT_ON_FREE_DEFAULT_ON",
           "op": "equals",
           "value": "y"
         }

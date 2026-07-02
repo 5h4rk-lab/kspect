@@ -29,6 +29,11 @@ func TestExitCodeContract(t *testing.T) {
 		{"scan gate above findings", []string{"scan", "--root", hardened, "--fail-on", "high"}, 0},
 		{"scan bad severity", []string{"scan", "--fail-on", "urgent"}, 3},
 		{"scan bad format", []string{"scan", "--root", hardened, "--format", "xml"}, 3},
+		{"scan stray positional", []string{"scan", "extra"}, 3},
+		{"rules stray positional", []string{"rules", "extra"}, 3},
+		{"scan valid profile", []string{"scan", "--root", hardened, "--profile", "server"}, 0},
+		{"scan unknown profile", []string{"scan", "--root", hardened, "--profile", "laptop"}, 3},
+		{"scan profile plus tags", []string{"scan", "--root", hardened, "--profile", "server", "--tags", "network"}, 0},
 		{"unknown command", []string{"frobnicate"}, 3},
 		{"diff missing file", []string{"diff", "/nonexistent/base.json"}, 3},
 		{"rules list", []string{"rules"}, 0},
@@ -56,6 +61,14 @@ func TestBaselineDiffFlow(t *testing.T) {
 	}
 	if got := run([]string{"diff", base, "--root", weak}); got != 2 {
 		t.Errorf("drift diff exit = %d, want 2", got)
+	}
+	// Ignoring every drifting kind must bring the exit code back to 0.
+	if got := run([]string{"diff", base, "--root", weak,
+		"--ignore", "sysctl:*,cmdline:*,kconfig:*,module:*,mitigation:*,securityfs:*,kernel:release"}); got != 0 {
+		t.Errorf("fully-ignored diff exit = %d, want 0", got)
+	}
+	if got := run([]string{"diff", base, "--ignore", "bogus-pattern"}); got != 3 {
+		t.Errorf("bad ignore pattern exit = %d, want 3", got)
 	}
 }
 

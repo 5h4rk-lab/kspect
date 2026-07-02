@@ -7,13 +7,17 @@
 # binary that only reads files, so there is nothing else to ship — no
 # shell, no libc, no package manager, no CVE surface.
 
-FROM golang:1.22-alpine AS build
+# Cross-compile on the build host (BUILDPLATFORM) for the requested
+# TARGETARCH instead of emulating the compiler under QEMU.
+FROM --platform=$BUILDPLATFORM golang:1.22-alpine AS build
 WORKDIR /src
 COPY go.mod ./
 COPY cmd ./cmd
 COPY internal ./internal
 ARG VERSION=dev
-RUN CGO_ENABLED=0 go build -trimpath \
+ARG TARGETOS TARGETARCH
+RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH:-amd64} \
+      go build -trimpath \
       -ldflags "-s -w -X main.version=${VERSION}" \
       -o /kspect ./cmd/kspect
 

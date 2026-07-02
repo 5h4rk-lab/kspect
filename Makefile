@@ -29,11 +29,14 @@ demo: build
 	./bin/kspect scan --root testdata/rootfs-weak --color always || true
 
 # Cross-compile release artifacts for the common server platforms.
+# Asset names are unversioned so the documented install command
+# (…/releases/latest/download/kspect_linux_amd64) stays valid across
+# releases; the version is embedded in the binary (kspect version).
 release-snapshot:
 	@mkdir -p dist
 	@for target in linux/amd64 linux/arm64; do \
 	  os=$${target%/*}; arch=$${target#*/}; \
-	  out=dist/kspect_$(VERSION)_$${os}_$${arch}; \
+	  out=dist/kspect_$${os}_$${arch}; \
 	  echo "building $$out"; \
 	  CGO_ENABLED=0 GOOS=$$os GOARCH=$$arch \
 	    go build -trimpath -ldflags "$(LDFLAGS)" -o $$out ./cmd/kspect; \

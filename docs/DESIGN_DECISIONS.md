@@ -50,6 +50,12 @@ Living record of architectural decisions, rejected alternatives, lessons learned
 **Decision.** Advisory rules (e.g. user-namespace surface, `modules_disabled`) display `NOTE`, not `FAIL`, and never gate by default.
 **Why.** Discovered during fixture testing: a hardened host "failing" advisory checks reads as false positives and erodes trust. JSON semantics unchanged (`status: fail`, `severity: info`) so pipelines can still key on them.
 
+### D-11 — Drift ignore lists: CLI flag, not baseline-embedded (yet)
+**Decision.** `diff --ignore kind:key,...` with a `*` prefix glob; volatile runtime counters (per-boot IDs, live counters) are suppressed unconditionally in the differ. Malformed or unknown-kind patterns are a hard error.
+**Why.** Fleet-specific churn (on-demand netfilter modules, tuned sysctls) must be suppressible without editing baselines, and the invocation lives in the systemd unit or CI config where it is itself reviewed. Silent acceptance of a typo'd pattern would mask real drift — the failure mode a drift tool exists to prevent — hence strict validation.
+**Rejected (for now): ignore lists stored inside baseline files.** The baseline file is currently a raw `facts.Facts` snapshot; embedding policy in it requires a versioned wrapper format and a migration story. Deferred to a baseline-format RFC rather than rushed into v0.2.
+**Rejected: full regex patterns.** Prefix globs cover the observed use cases (module families, sysctl subtrees) and stay reviewable at a glance.
+
 ---
 
 ## Lessons learned

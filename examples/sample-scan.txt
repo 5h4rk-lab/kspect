@@ -108,6 +108,10 @@ FAIL MEDIUM  KSPECT-SYSCTL-021    Source-routed packets not accepted
      observed: sysctl net.ipv4.conf.all.accept_source_route = "1"
      expected: sysctl net.ipv4.conf.all.accept_source_route = 0
      fix:      sysctl -w net.ipv4.conf.all.accept_source_route=0
+FAIL MEDIUM  KSPECT-SYSCTL-024    ICMPv6 redirects not accepted
+     observed: sysctl net.ipv6.conf.all.accept_redirects = "1"
+     expected: sysctl net.ipv6.conf.all.accept_redirects = 0
+     fix:      sysctl -w net.ipv6.conf.all.accept_redirects=0 net.ipv6.conf.default.accept_redirects=0
 FAIL LOW     KSPECT-CMDLINE-005   Slab merging disabled (slab_nomerge)
      observed: cmdline slab_nomerge absent
      expected: cmdline slab_nomerge present
@@ -124,6 +128,10 @@ FAIL LOW     KSPECT-SYSCTL-014    Regular-file protection in world-writable dire
      observed: sysctl fs.protected_regular = "0"
      expected: sysctl fs.protected_regular >= 1
      fix:      sysctl -w fs.protected_regular=2
+NOTE INFO    KSPECT-CMDLINE-007   Memory zeroed on free (init_on_free) — hardened profile
+     observed: cmdline init_on_free absent
+     expected: cmdline init_on_free = 1 OR CONFIG_INIT_ON_FREE_DEFAULT_ON = y
+     fix:      Add init_on_free=1 to the kernel command line, or build with CONFIG_INIT_ON_FREE_DEFAULT_ON=y.
 NOTE INFO    KSPECT-SYSCTL-022    Unprivileged user namespaces surface (informational)
      observed: sysctl user.max_user_namespaces = "15000"
      expected: sysctl user.max_user_namespaces = 0
@@ -168,4 +176,4 @@ NOTE INFO    KSPECT-SYSCTL-022    Unprivileged user namespaces surface (informat
      observed: sysctl kernel.modules_disabled not present on this kernel
      expected: sysctl kernel.modules_disabled = 1
 
-Summary: 48 checks — 32 fail, 3 pass, 13 unknown (9 high, 18 medium, 4 low, 1 info)
+Summary: 50 checks — 34 fail, 3 pass, 13 unknown (9 high, 19 medium, 4 low, 2 info)

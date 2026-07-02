@@ -7,7 +7,7 @@
         "driver": {
           "name": "kspect",
           "informationUri": "https://github.com/5h4rk-lab/kspect",
-          "version": "dev",
+          "version": "v0.1.0-2-g8b502bd-dirty",
           "rules": [
             {
               "id": "KSPECT-CMDLINE-001",
@@ -708,6 +708,31 @@
               }
             },
             {
+              "id": "KSPECT-SYSCTL-024",
+              "name": "KSPECT-SYSCTL-024",
+              "shortDescription": {
+                "text": "ICMPv6 redirects not accepted"
+              },
+              "fullDescription": {
+                "text": "Accepting ICMPv6 redirects lets on-path attackers alter IPv6 routing for man-in-the-middle attacks — the IPv6 counterpart of the IPv4 redirect rule; hardening only IPv4 leaves the same attack open over IPv6."
+              },
+              "help": {
+                "text": "sysctl -w net.ipv6.conf.all.accept_redirects=0 net.ipv6.conf.default.accept_redirects=0"
+              },
+              "properties": {
+                "severity": "medium",
+                "tags": [
+                  "sysctl",
+                  "network",
+                  "server",
+                  "container-host"
+                ]
+              },
+              "defaultConfiguration": {
+                "level": "warning"
+              }
+            },
+            {
               "id": "KSPECT-CMDLINE-005",
               "name": "KSPECT-CMDLINE-005",
               "shortDescription": {
@@ -807,6 +832,31 @@
               },
               "defaultConfiguration": {
                 "level": "warning"
+              }
+            },
+            {
+              "id": "KSPECT-CMDLINE-007",
+              "name": "KSPECT-CMDLINE-007",
+              "shortDescription": {
+                "text": "Memory zeroed on free (init_on_free) — hardened profile"
+              },
+              "fullDescription": {
+                "text": "Zeroing freed memory closes use-after-free info leaks and shortens the lifetime of stale secrets in the heap. Costs a few percent of performance, so it is an advisory hardened-profile control rather than a baseline requirement."
+              },
+              "help": {
+                "text": "Add init_on_free=1 to the kernel command line, or build with CONFIG_INIT_ON_FREE_DEFAULT_ON=y."
+              },
+              "properties": {
+                "severity": "info",
+                "tags": [
+                  "cmdline",
+                  "memory-safety",
+                  "kspp",
+                  "hardened"
+                ]
+              },
+              "defaultConfiguration": {
+                "level": "note"
               }
             },
             {
@@ -1270,6 +1320,22 @@
           ]
         },
         {
+          "ruleId": "KSPECT-SYSCTL-024",
+          "level": "warning",
+          "message": {
+            "text": "ICMPv6 redirects not accepted — observed: sysctl net.ipv6.conf.all.accept_redirects = \"1\"; expected: sysctl net.ipv6.conf.all.accept_redirects = 0. Fix: sysctl -w net.ipv6.conf.all.accept_redirects=0 net.ipv6.conf.default.accept_redirects=0"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "kernel/KSPECT-SYSCTL-024"
+                }
+              }
+            }
+          ]
+        },
+        {
           "ruleId": "KSPECT-CMDLINE-005",
           "level": "warning",
           "message": {
@@ -1328,6 +1394,22 @@
               "physicalLocation": {
                 "artifactLocation": {
                   "uri": "kernel/KSPECT-SYSCTL-014"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "KSPECT-CMDLINE-007",
+          "level": "note",
+          "message": {
+            "text": "Memory zeroed on free (init_on_free) — hardened profile — observed: cmdline init_on_free absent; expected: cmdline init_on_free = 1 OR CONFIG_INIT_ON_FREE_DEFAULT_ON = y. Fix: Add init_on_free=1 to the kernel command line, or build with CONFIG_INIT_ON_FREE_DEFAULT_ON=y."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "kernel/KSPECT-CMDLINE-007"
                 }
               }
             }

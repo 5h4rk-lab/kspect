@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"strings"
 
 	"github.com/5h4rk-lab/kspect/internal/facts"
 )
@@ -58,19 +59,74 @@ func Load(path string) (*facts.Facts, error) {
 	return &f, nil
 }
 
-// Diff computes drift from old (baseline) to new (current).
-func Diff(old, cur *facts.Facts) *Drift {
+// IgnoreList suppresses user-selected keys from drift reporting.
+// Patterns have the form "kind:key"; a key ending in '*' matches by
+// prefix. Kinds are the Change.Kind values (sysctl, cmdline, kconfig,
+// module, mitigation, securityfs, kernel).
+type IgnoreList struct {
+	exact  map[string]bool     // "kind:key"
+	prefix map[string][]string // kind -> key prefixes
+}
+
+var validKinds = map[string]bool{
+	"sysctl": true, "cmdline": true, "kconfig": true, "module": true,
+	"mitigation": true, "securityfs": true, "kernel": true,
+}
+
+// ParseIgnores builds an IgnoreList from "kind:key" patterns, rejecting
+// malformed or unknown-kind patterns so typos fail loudly instead of
+// silently masking real drift.
+func ParseIgnores(patterns []string) (*IgnoreList, error) {
+	il := &IgnoreList{exact: map[string]bool{}, prefix: map[string][]string{}}
+	for _, p := range patterns {
+		kind, key, ok := strings.Cut(p, ":")
+		if !ok || key == "" {
+			return nil, fmt.Errorf("ignore pattern %q: want kind:key (e.g. sysctl:net.netfilter.*)", p)
+		}
+		if !validKinds[kind] {
+			return nil, fmt.Errorf("ignore pattern %q: unknown kind %q", p, kind)
+		}
+		if strings.HasSuffix(key, "*") {
+			il.prefix[kind] = append(il.prefix[kind], strings.TrimSuffix(key, "*"))
+		} else {
+			il.exact[kind+":"+key] = true
+		}
+	}
+	return il, nil
+}
+
+func (il *IgnoreList) matches(kind, key string) bool {
+	if il == nil {
+		return false
+	}
+	if il.exact[kind+":"+key] {
+		return true
+	}
+	for _, pre := range il.prefix[kind] {
+		if strings.HasPrefix(key, pre) {
+			return true
+		}
+	}
+	return false
+}
+
+// Diff computes drift from old (baseline) to new (current). ignore may
+// be nil; volatile runtime counters are always suppressed regardless.
+func Diff(old, cur *facts.Facts, ignore *IgnoreList) *Drift {
 	d := &Drift{
 		BaselineAt: old.CollectedAt.Format("2006-01-02T15:04:05Z07:00"),
 		CurrentAt:  cur.CollectedAt.Format("2006-01-02T15:04:05Z07:00"),
 	}
-	d.Changes = append(d.Changes, diffMaps("sysctl", old.Sysctl, cur.Sysctl, isVolatileSysctl)...)
-	d.Changes = append(d.Changes, diffMaps("cmdline", old.Cmdline, cur.Cmdline)...)
-	d.Changes = append(d.Changes, diffMaps("kconfig", old.Kconfig, cur.Kconfig)...)
-	d.Changes = append(d.Changes, diffMaps("mitigation", old.Mitigations, cur.Mitigations)...)
-	d.Changes = append(d.Changes, diffMaps("securityfs", old.SecurityFS, cur.SecurityFS)...)
-	d.Changes = append(d.Changes, diffSets("module", old.Modules, cur.Modules)...)
-	if old.Kernel.Release != cur.Kernel.Release {
+	skip := func(kind string) func(string) bool {
+		return func(key string) bool { return ignore.matches(kind, key) }
+	}
+	d.Changes = append(d.Changes, diffMaps("sysctl", old.Sysctl, cur.Sysctl, isVolatileSysctl, skip("sysctl"))...)
+	d.Changes = append(d.Changes, diffMaps("cmdline", old.Cmdline, cur.Cmdline, skip("cmdline"))...)
+	d.Changes = append(d.Changes, diffMaps("kconfig", old.Kconfig, cur.Kconfig, skip("kconfig"))...)
+	d.Changes = append(d.Changes, diffMaps("mitigation", old.Mitigations, cur.Mitigations, skip("mitigation"))...)
+	d.Changes = append(d.Changes, diffMaps("securityfs", old.SecurityFS, cur.SecurityFS, skip("securityfs"))...)
+	d.Changes = append(d.Changes, diffSets("module", old.Modules, cur.Modules, skip("module"))...)
+	if old.Kernel.Release != cur.Kernel.Release && !ignore.matches("kernel", "release") {
 		d.Changes = append(d.Changes, Change{
 			Kind: "kernel", Key: "release",
 			Old: old.Kernel.Release, New: cur.Kernel.Release, Type: "changed",
@@ -124,24 +180,34 @@ func shouldSkip(key string, skip []func(string) bool) bool {
 	return false
 }
 
+// isVolatileSysctl filters runtime counters and per-boot identifiers
+// that change without any configuration action. A baseline must survive
+// normal operation and reboots; these keys drift by design and would
+// make every diff noisy.
 func isVolatileSysctl(key string) bool {
+	// fs.quota.* are all counters (cache_hits, drops, lookups, reads,
+	// writes, allocated_dquots, free_dquots, syncs).
+	if strings.HasPrefix(key, "fs.quota.") {
+		return true
+	}
 	switch key {
-	case "fs.dentry-state",
-		"fs.file-nr",
-		"fs.inode-nr",
+	case "fs.dentry-state", // cache occupancy counters
+		"fs.file-nr",  // open file handles
+		"fs.inode-nr", // inode counters
 		"fs.inode-state",
-		"fs.quota.cache_hits",
-		"fs.quota.drops",
-		"fs.quota.lookups",
-		"kernel.ns_last_pid",
-		"kernel.random.uuid":
+		"kernel.ns_last_pid",               // last allocated PID
+		"kernel.pty.nr",                    // open pseudoterminals
+		"kernel.random.uuid",               // new value on every read
+		"kernel.random.boot_id",            // new value every boot
+		"kernel.random.entropy_avail",      // fluctuates constantly
+		"net.netfilter.nf_conntrack_count": // live connection count
 		return true
 	default:
 		return false
 	}
 }
 
-func diffSets(kind string, old, cur []string) []Change {
+func diffSets(kind string, old, cur []string, skip ...func(string) bool) []Change {
 	if old == nil || cur == nil {
 		return nil
 	}
@@ -155,12 +221,12 @@ func diffSets(kind string, old, cur []string) []Change {
 	}
 	var out []Change
 	for m := range os_ {
-		if !cs[m] {
+		if !cs[m] && !shouldSkip(m, skip) {
 			out = append(out, Change{Kind: kind, Key: m, Type: "removed"})
 		}
 	}
 	for m := range cs {
-		if !os_[m] {
+		if !os_[m] && !shouldSkip(m, skip) {
 			out = append(out, Change{Kind: kind, Key: m, Type: "added"})
 		}
 	}

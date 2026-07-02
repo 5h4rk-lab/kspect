@@ -36,17 +36,25 @@ Usage:
 Common flags:
   --root PATH        Filesystem root to audit (default "/"; use /host in containers)
   --rules FILE       Layer a custom JSON ruleset over the builtin rules
+  --profile NAME     Deployment profile: server|container-host|workstation|hardened
+                     (validated shorthand for --tags)
   --tags a,b         Only evaluate rules carrying any of these tags
   --format FMT       scan: table|json|sarif   diff: table|json   (default table)
   --fail-on SEV      scan: minimum failing severity that sets exit code 1
                      (info|low|medium|high; default low)
   --show-pass        scan: include passing checks in table output
+  --ignore PATTERNS  diff: comma-separated kind:key patterns to exclude from
+                     drift ('*' suffix matches by prefix), e.g.
+                     module:nf_*,sysctl:net.ipv4.ip_forward
   --color MODE       auto|always|never (default auto)
+
+Reducing noise: pick a profile (--profile server), raise the gate
+(--fail-on high), and suppress expected drift (diff --ignore kind:key).
 
 Examples:
   kspect scan
   kspect scan --format sarif > kspect.sarif
-  kspect scan --tags container-host --fail-on high
+  kspect scan --profile container-host --fail-on high
   kspect baseline save.json && kspect diff save.json
   docker run --rm -v /:/host:ro ghcr.io/5h4rk-lab/kspect scan --root /host
 `
@@ -86,7 +94,15 @@ type commonFlags struct {
 	root      string
 	rulesPath string
 	tags      string
+	profile   string
 	color     string
+}
+
+// profiles are the curated deployment profiles every builtin rule is
+// tagged with. --profile is a validated alias for --tags: same filter,
+// but typos fail loudly instead of silently selecting zero rules.
+var profiles = map[string]bool{
+	"server": true, "container-host": true, "workstation": true, "hardened": true,
 }
 
 func addCommon(fs *flag.FlagSet) *commonFlags {
@@ -94,6 +110,7 @@ func addCommon(fs *flag.FlagSet) *commonFlags {
 	fs.StringVar(&c.root, "root", "/", "filesystem root to audit")
 	fs.StringVar(&c.rulesPath, "rules", "", "path to custom JSON ruleset (layered over builtin)")
 	fs.StringVar(&c.tags, "tags", "", "comma-separated rule tags to include")
+	fs.StringVar(&c.profile, "profile", "", "deployment profile: server|container-host|workstation|hardened")
 	fs.StringVar(&c.color, "color", "auto", "color output: auto|always|never")
 	return c
 }
@@ -110,8 +127,15 @@ func (c *commonFlags) loadRules() ([]rules.Rule, error) {
 		}
 		rs = rules.Merge(rs, custom)
 	}
-	if c.tags != "" {
-		rs = rules.FilterTags(rs, splitCSV(c.tags))
+	tags := splitCSV(c.tags)
+	if c.profile != "" {
+		if !profiles[c.profile] {
+			return nil, fmt.Errorf("unknown profile %q (want server|container-host|workstation|hardened)", c.profile)
+		}
+		tags = append(tags, c.profile)
+	}
+	if len(tags) > 0 {
+		rs = rules.FilterTags(rs, tags)
 	}
 	return rs, nil
 }
@@ -136,6 +160,9 @@ func cmdScan(args []string) int {
 	showPass := fs.Bool("show-pass", false, "include passing checks in table output")
 	if err := fs.Parse(args); err != nil {
 		return 3
+	}
+	if fs.NArg() > 0 {
+		return fail(fmt.Errorf("scan takes no positional arguments (got %q)", fs.Args()))
 	}
 	gate, err := rules.ParseSeverity(*failOn)
 	if err != nil {
@@ -196,6 +223,7 @@ func cmdDiff(args []string) int {
 	fs := flag.NewFlagSet("diff", flag.ContinueOnError)
 	c := addCommon(fs)
 	format := fs.String("format", "table", "output format: table|json")
+	ignore := fs.String("ignore", "", "comma-separated kind:key drift ignore patterns ('*' suffix matches by prefix)")
 	pos, perr := parseInterleaved(fs, args)
 	if perr != nil {
 		return 3
@@ -203,12 +231,16 @@ func cmdDiff(args []string) int {
 	if len(pos) != 1 {
 		return fail(fmt.Errorf("diff requires exactly one baseline file argument"))
 	}
+	il, err := baseline.ParseIgnores(splitCSV(*ignore))
+	if err != nil {
+		return fail(err)
+	}
 	old, err := baseline.Load(pos[0])
 	if err != nil {
 		return fail(err)
 	}
 	cur := facts.Collect(c.root)
-	d := baseline.Diff(old, cur)
+	d := baseline.Diff(old, cur, il)
 
 	switch *format {
 	case "table":
@@ -231,6 +263,9 @@ func cmdRules(args []string) int {
 	c := addCommon(fs)
 	if err := fs.Parse(args); err != nil {
 		return 3
+	}
+	if fs.NArg() > 0 {
+		return fail(fmt.Errorf("rules takes no positional arguments (got %q)", fs.Args()))
 	}
 	rs, err := c.loadRules()
 	if err != nil {

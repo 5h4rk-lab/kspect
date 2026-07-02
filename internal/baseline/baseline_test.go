@@ -45,7 +45,7 @@ func TestDiffDetectsChanges(t *testing.T) {
 		Modules: []string{"ext4", "dccp"},
 		Kernel:  facts.Kernel{Release: "6.9.0"},
 	}
-	d := Diff(old, cur)
+	d := Diff(old, cur, nil)
 	if !d.HasDrift() {
 		t.Fatal("expected drift")
 	}
@@ -65,7 +65,7 @@ func TestDiffNoNoiseWhenSourceMissing(t *testing.T) {
 	// added/removed changes for every key.
 	old := &facts.Facts{Sysctl: map[string]string{"a": "1"}, Kconfig: map[string]string{"CONFIG_X": "y"}}
 	cur := &facts.Facts{Sysctl: map[string]string{"a": "1"}} // kconfig unavailable now
-	d := Diff(old, cur)
+	d := Diff(old, cur, nil)
 	for _, c := range d.Changes {
 		if c.Kind == "kconfig" {
 			t.Errorf("kconfig drift reported despite missing source: %+v", c)
@@ -98,7 +98,7 @@ func TestDiffIgnoresVolatileSysctls(t *testing.T) {
 		"kernel.ns_last_pid":   "6456",
 		"kernel.random.uuid":   "2b59aab8-7e41-46a8-b596-2b9ab5e847da",
 	}}
-	d := Diff(old, cur)
+	d := Diff(old, cur, nil)
 	if len(d.Changes) != 1 {
 		t.Fatalf("changes = %+v, want only stable sysctl drift", d.Changes)
 	}
@@ -108,9 +108,69 @@ func TestDiffIgnoresVolatileSysctls(t *testing.T) {
 	}
 }
 
+func TestParseIgnoresRejectsBadPatterns(t *testing.T) {
+	for _, bad := range []string{"no-colon", "sysctl:", "dmesg:key", ":key"} {
+		if _, err := ParseIgnores([]string{bad}); err == nil {
+			t.Errorf("ParseIgnores(%q): expected error", bad)
+		}
+	}
+	if _, err := ParseIgnores([]string{"sysctl:net.ipv4.ip_forward", "module:nf_*"}); err != nil {
+		t.Errorf("valid patterns rejected: %v", err)
+	}
+}
+
+func TestDiffHonorsIgnoreList(t *testing.T) {
+	old := &facts.Facts{
+		Sysctl:  map[string]string{"net.ipv4.ip_forward": "0", "kernel.kptr_restrict": "2", "net.netfilter.nf_conntrack_max": "1000"},
+		Modules: []string{"ext4", "nf_tables"},
+		Kernel:  facts.Kernel{Release: "6.8.0"},
+	}
+	cur := &facts.Facts{
+		Sysctl:  map[string]string{"net.ipv4.ip_forward": "1", "kernel.kptr_restrict": "0", "net.netfilter.nf_conntrack_max": "2000"},
+		Modules: []string{"ext4", "nf_conntrack"},
+		Kernel:  facts.Kernel{Release: "6.9.0"},
+	}
+	il, err := ParseIgnores([]string{
+		"sysctl:net.ipv4.ip_forward", // exact
+		"sysctl:net.netfilter.*",     // prefix
+		"module:nf_*",                // prefix on set diff
+		"kernel:release",             // kernel version change
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	d := Diff(old, cur, il)
+	if len(d.Changes) != 1 {
+		t.Fatalf("changes = %+v, want only kptr_restrict", d.Changes)
+	}
+	if c := d.Changes[0]; c.Kind != "sysctl" || c.Key != "kernel.kptr_restrict" {
+		t.Fatalf("surviving change = %+v", c)
+	}
+}
+
+func TestDiffIgnoresPerBootVolatiles(t *testing.T) {
+	old := &facts.Facts{Sysctl: map[string]string{
+		"kernel.random.boot_id":            "aaaa-bbbb",
+		"kernel.random.entropy_avail":      "256",
+		"kernel.pty.nr":                    "4",
+		"net.netfilter.nf_conntrack_count": "812",
+		"fs.quota.syncs":                   "12",
+	}}
+	cur := &facts.Facts{Sysctl: map[string]string{
+		"kernel.random.boot_id":            "cccc-dddd",
+		"kernel.random.entropy_avail":      "251",
+		"kernel.pty.nr":                    "7",
+		"net.netfilter.nf_conntrack_count": "4021",
+		"fs.quota.syncs":                   "19",
+	}}
+	if d := Diff(old, cur, nil); d.HasDrift() {
+		t.Errorf("volatile keys reported as drift: %+v", d.Changes)
+	}
+}
+
 func TestDiffIdentical(t *testing.T) {
 	f := facts.Collect("../../testdata/rootfs-hardened")
-	if d := Diff(f, f); d.HasDrift() {
+	if d := Diff(f, f, nil); d.HasDrift() {
 		t.Errorf("identical snapshots reported drift: %+v", d.Changes)
 	}
 }
