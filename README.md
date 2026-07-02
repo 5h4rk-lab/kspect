@@ -2,7 +2,7 @@
 
 **Linux kernel security posture auditing and drift detection — one static binary, zero dependencies.**
 
-**Website:** https://5h4rk-lab.github.io/kspect/
+**Website:** https://5h4rk.me/kspect/
 
 kspect audits the *running* kernel's security posture (sysctls, boot parameters, kernel config, loaded modules, CPU vulnerability mitigations, active LSMs, lockdown state), explains every finding with a rationale and a concrete fix, and detects configuration drift against saved baselines. It is built for CI gates, fleet auditing, and incident-response triage — not just one-off checks.
 
