@@ -73,6 +73,41 @@ func TestDiffNoNoiseWhenSourceMissing(t *testing.T) {
 	}
 }
 
+func TestDiffIgnoresVolatileSysctls(t *testing.T) {
+	old := &facts.Facts{Sysctl: map[string]string{
+		"fs.dentry-state":      "76099\t67205\t45\t0\t6485\t0",
+		"fs.file-nr":           "1630\t0\t9223372036854775807",
+		"fs.inode-nr":          "69602\t569",
+		"fs.inode-state":       "69602\t569\t0\t0\t0\t0\t0",
+		"fs.quota.cache_hits":  "682",
+		"fs.quota.drops":       "637",
+		"fs.quota.lookups":     "684",
+		"kernel.kptr_restrict": "2",
+		"kernel.ns_last_pid":   "6451",
+		"kernel.random.uuid":   "fa1cc13b-c574-47ae-8504-9611518f2760",
+	}}
+	cur := &facts.Facts{Sysctl: map[string]string{
+		"fs.dentry-state":      "76100\t67206\t45\t0\t6485\t0",
+		"fs.file-nr":           "1631\t0\t9223372036854775807",
+		"fs.inode-nr":          "69603\t569",
+		"fs.inode-state":       "69603\t569\t0\t0\t0\t0\t0",
+		"fs.quota.cache_hits":  "686",
+		"fs.quota.drops":       "641",
+		"fs.quota.lookups":     "688",
+		"kernel.kptr_restrict": "0",
+		"kernel.ns_last_pid":   "6456",
+		"kernel.random.uuid":   "2b59aab8-7e41-46a8-b596-2b9ab5e847da",
+	}}
+	d := Diff(old, cur)
+	if len(d.Changes) != 1 {
+		t.Fatalf("changes = %+v, want only stable sysctl drift", d.Changes)
+	}
+	got := d.Changes[0]
+	if got.Kind != "sysctl" || got.Key != "kernel.kptr_restrict" || got.Type != "changed" {
+		t.Fatalf("change = %+v, want kernel.kptr_restrict drift", got)
+	}
+}
+
 func TestDiffIdentical(t *testing.T) {
 	f := facts.Collect("../../testdata/rootfs-hardened")
 	if d := Diff(f, f); d.HasDrift() {

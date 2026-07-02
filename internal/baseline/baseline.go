@@ -64,7 +64,7 @@ func Diff(old, cur *facts.Facts) *Drift {
 		BaselineAt: old.CollectedAt.Format("2006-01-02T15:04:05Z07:00"),
 		CurrentAt:  cur.CollectedAt.Format("2006-01-02T15:04:05Z07:00"),
 	}
-	d.Changes = append(d.Changes, diffMaps("sysctl", old.Sysctl, cur.Sysctl)...)
+	d.Changes = append(d.Changes, diffMaps("sysctl", old.Sysctl, cur.Sysctl, isVolatileSysctl)...)
 	d.Changes = append(d.Changes, diffMaps("cmdline", old.Cmdline, cur.Cmdline)...)
 	d.Changes = append(d.Changes, diffMaps("kconfig", old.Kconfig, cur.Kconfig)...)
 	d.Changes = append(d.Changes, diffMaps("mitigation", old.Mitigations, cur.Mitigations)...)
@@ -85,7 +85,7 @@ func Diff(old, cur *facts.Facts) *Drift {
 	return d
 }
 
-func diffMaps(kind string, old, cur map[string]string) []Change {
+func diffMaps(kind string, old, cur map[string]string, skip ...func(string) bool) []Change {
 	// If either side failed to collect this source entirely, do not
 	// report the whole source as removed/added — that would be pure noise.
 	if len(old) == 0 || len(cur) == 0 {
@@ -93,6 +93,9 @@ func diffMaps(kind string, old, cur map[string]string) []Change {
 	}
 	var out []Change
 	for k, ov := range old {
+		if shouldSkip(k, skip) {
+			continue
+		}
 		nv, ok := cur[k]
 		switch {
 		case !ok:
@@ -102,11 +105,40 @@ func diffMaps(kind string, old, cur map[string]string) []Change {
 		}
 	}
 	for k, nv := range cur {
+		if shouldSkip(k, skip) {
+			continue
+		}
 		if _, ok := old[k]; !ok {
 			out = append(out, Change{Kind: kind, Key: k, New: nv, Type: "added"})
 		}
 	}
 	return out
+}
+
+func shouldSkip(key string, skip []func(string) bool) bool {
+	for _, fn := range skip {
+		if fn != nil && fn(key) {
+			return true
+		}
+	}
+	return false
+}
+
+func isVolatileSysctl(key string) bool {
+	switch key {
+	case "fs.dentry-state",
+		"fs.file-nr",
+		"fs.inode-nr",
+		"fs.inode-state",
+		"fs.quota.cache_hits",
+		"fs.quota.drops",
+		"fs.quota.lookups",
+		"kernel.ns_last_pid",
+		"kernel.random.uuid":
+		return true
+	default:
+		return false
+	}
 }
 
 func diffSets(kind string, old, cur []string) []Change {
