@@ -1,0 +1,37 @@
+{
+  "version": 1,
+  "rules": [
+    {
+      "id": "ORG-CORE-001",
+      "title": "Org policy: kernel core_pattern must not pipe to unapproved handlers",
+      "severity": "medium",
+      "tags": ["org", "server"],
+      "rationale": "core_pattern pipes run as root on every crash; unapproved handlers are a persistence vector and have leaked credentials in prior incidents.",
+      "remediation": "Set kernel.core_pattern to the approved handler in /etc/sysctl.d/50-org.conf",
+      "checks": [
+        { "source": "sysctl", "key": "kernel.core_pattern", "op": "not_contains", "value": "|" }
+      ]
+    },
+    {
+      "id": "ORG-FIPS-001",
+      "title": "Org policy: FIPS mode enabled on regulated hosts",
+      "severity": "high",
+      "tags": ["org", "compliance"],
+      "rationale": "Regulated workloads require FIPS-validated cryptography.",
+      "remediation": "Boot with fips=1 after enabling the distribution FIPS profile.",
+      "checks": [
+        { "source": "cmdline", "key": "fips", "op": "equals", "value": "1" }
+      ]
+    },
+    {
+      "id": "KSPECT-SYSCTL-008",
+      "title": "SysRq (suppressed by org)",
+      "severity": "low",
+      "disabled": true,
+      "rationale": "SysRq is required by our on-call hardware runbooks; risk accepted, ticket OPS-1234.",
+      "checks": [
+        { "source": "sysctl", "key": "kernel.sysrq", "op": "present" }
+      ]
+    }
+  ]
+}

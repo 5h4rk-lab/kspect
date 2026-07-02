@@ -1,0 +1,614 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>kspect — Linux kernel security posture auditing &amp; drift detection</title>
+<meta name="description" content="kspect audits the running kernel's security posture — sysctls, boot parameters, kconfig, modules, CPU mitigations, LSMs — explains every finding with a fix, and detects drift. One static binary, zero dependencies, CI-native.">
+<link rel="canonical" href="https://5h4rk-lab.github.io/kspect/">
+<meta property="og:type" content="website">
+<meta property="og:title" content="kspect — kernel security posture auditing & drift detection">
+<meta property="og:description" content="Audit and continuously verify Linux kernel hardening. Three-state results, SARIF output, baseline drift detection, zero dependencies.">
+<meta property="og:image" content="https://5h4rk-lab.github.io/kspect/assets/og.png">
+<meta property="og:url" content="https://5h4rk-lab.github.io/kspect/">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#0b0e14">
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,300..800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/site.css">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"kspect",
+"applicationCategory":"SecurityApplication","operatingSystem":"Linux",
+"description":"Linux kernel security posture auditing and drift detection with SARIF output and zero dependencies.",
+"license":"https://www.apache.org/licenses/LICENSE-2.0",
+"codeRepository":"https://github.com/5h4rk-lab/kspect",
+"offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}}
+</script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="site-head">
+  <div class="wrap">
+    <a class="brand" href="#top" aria-label="kspect home">
+      <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><rect x="1" y="1" width="18" height="18" rx="4" fill="none" stroke="#ffb454" stroke-width="1.6"/><rect x="5" y="5.5" width="6" height="2.4" rx="1.2" fill="#f0555c"/><rect x="5" y="9" width="10" height="2.4" rx="1.2" fill="#4cc38a"/><rect x="5" y="12.5" width="4" height="2.4" rx="1.2" fill="#7c8ba1"/></svg>
+      kspect <span class="v">v0.1</span>
+    </a>
+    <nav class="nav" aria-label="Main">
+      <a href="#how">How it works</a>
+      <a href="#features">Features</a>
+      <a href="#security">Security model</a>
+      <a href="#install">Install</a>
+      <a href="#compare">Compare</a>
+      <a href="#faq">FAQ</a>
+      <a href="#docs">Docs</a>
+    </nav>
+    <button class="menu-btn" aria-expanded="false" aria-label="Toggle menu">☰</button>
+    <a class="gh-btn" href="https://github.com/5h4rk-lab/kspect">
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.5 7.5 0 0 1 4 0c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+      Star on GitHub
+    </a>
+  </div>
+</header>
+
+<main id="main">
+
+<!-- ================= HERO ================= -->
+<section class="hero no-line" id="top">
+  <div class="wrap">
+    <div>
+      <p class="eyebrow">/proc · /sys · /boot — audited</p>
+      <h1>Kernel hardening decays.<br><span class="a">kspect notices.</span></h1>
+      <p class="lede">Audit the running kernel's security posture — sysctls, boot parameters, kconfig, modules, CPU mitigations, LSMs — with a fix attached to every finding. Snapshot a baseline, fail CI on drift. One static binary, zero dependencies.</p>
+      <div class="cta-row">
+        <a class="btn btn-amber" href="#install">Get kspect</a>
+        <a class="btn btn-ghost" href="https://github.com/5h4rk-lab/kspect">View source</a>
+      </div>
+      <div class="install-line">
+        <span class="p">$</span>
+        <code id="hero-install">docker run --rm -v /:/host:ro ghcr.io/5h4rk-lab/kspect scan --root /host</code>
+        <button class="copy-btn" data-copy="hero-install" aria-label="Copy install command">copy</button>
+      </div>
+      <div class="hero-meta">
+        <span>Apache-2.0</span><span>Go, stdlib only</span><span>read-only by design</span><span>SARIF 2.1.0</span>
+      </div>
+    </div>
+    <div>
+      <div class="term" aria-label="kspect scan output demo">
+        <div class="term-bar"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><span class="title">root@prod-node-04 — kspect</span></div>
+        <div class="term-body" id="term-body"></div>
+      </div>
+      <div class="posture" aria-label="Posture summary: 18 fail, 19 pass, 11 unknown of 48 checks">
+        <div class="bar" id="posture-bar"><i class="f"></i><i class="p"></i><i class="u"></i></div>
+        <div class="legend">
+          <span><i style="background:var(--fail)"></i><b>18</b> fail</span>
+          <span><i style="background:var(--pass)"></i><b>19</b> pass</span>
+          <span><i style="background:var(--unk)"></i><b>11</b> unknown</span>
+          <span style="margin-left:auto">a stock cloud kernel, unhardened</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= TRUST STRIP ================= -->
+<div class="strip" role="list" aria-label="Project facts">
+  <div class="wrap">
+    <div class="cell" role="listitem"><div class="n">0</div><div class="l">third-party dependencies — the supply chain is this repo and the Go toolchain</div></div>
+    <div class="cell" role="listitem"><div class="n">48</div><div class="l">KSPP/CIS-informed checks, each with rationale, fix, and references</div></div>
+    <div class="cell" role="listitem"><div class="n">84.9%</div><div class="l">test coverage, race detector on, fixture-based end-to-end suite</div></div>
+    <div class="cell" role="listitem"><div class="n">0/1/2/3</div><div class="l">stable exit-code contract, pinned by test — CI can depend on it</div></div>
+  </div>
+</div>
+
+<!-- ================= HOW IT WORKS + ARCHITECTURE ================= -->
+<section id="how">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <p class="eyebrow">docs/ARCHITECTURE.md</p>
+      <h2>Four packages. One direction of dependency.</h2>
+      <p>Collectors know nothing about rules; rules know nothing about the filesystem; the engine joins them; reporting only formats. Every seam is independently testable — hover the diagram.</p>
+    </div>
+
+    <div class="steps reveal" style="margin-bottom:40px">
+      <div class="step"><h3>Collect</h3><p>Read-only, size-capped reads of kernel interfaces, resolved against <code>--root</code> — the same code audits a live host, a container-mounted host, or an offline image.</p></div>
+      <div class="step"><h3>Evaluate</h3><p>48 rules × collected facts, with <code>any</code>/<code>all</code> combinators and three-state results. Missing data is <b>unknown</b>, never a fabricated failure.</p></div>
+      <div class="step"><h3>Report &amp; gate</h3><p>Terminal table, JSON, or SARIF for GitHub code scanning. <code>--fail-on</code> sets the severity gate; exit codes are a stable contract.</p></div>
+      <div class="step"><h3>Baseline &amp; diff</h3><p>Snapshot posture after hardening; <code>kspect diff</code> exits 2 on any deviation — from cron, a systemd timer, or fleet tooling.</p></div>
+    </div>
+
+    <div class="arch-wrap reveal">
+      <svg class="arch-svg" viewBox="0 0 720 330" role="img" aria-label="Architecture: kernel interfaces flow into facts, joined with rules by the engine, output by report; baseline diff branches from facts">
+        <defs><marker id="arr" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L8 4L0 8z" fill="#2b3648"/></marker></defs>
+        <!-- kernel sources -->
+        <g class="src">
+          <text x="8" y="52">/proc/sys/**</text>
+          <text x="8" y="82">/proc/cmdline</text>
+          <text x="8" y="112">/proc/config.gz · /boot</text>
+          <text x="8" y="142">/proc/modules</text>
+          <text x="8" y="172">/sys/…/vulnerabilities</text>
+          <text x="8" y="202">/sys/kernel/security</text>
+          <line x1="170" y1="47" x2="220" y2="110" class="flow"/>
+          <line x1="170" y1="77" x2="220" y2="115" class="flow"/>
+          <line x1="170" y1="107" x2="220" y2="122" class="flow"/>
+          <line x1="170" y1="137" x2="220" y2="130" class="flow"/>
+          <line x1="170" y1="167" x2="220" y2="137" class="flow"/>
+          <line x1="170" y1="197" x2="220" y2="144" class="flow"/>
+        </g>
+        <!-- facts -->
+        <g class="node" data-k="facts" tabindex="0" role="button" aria-label="internal/facts">
+          <rect x="222" y="95" width="122" height="62" rx="10"/>
+          <text x="240" y="122">facts</text>
+          <text x="240" y="140" class="sub">Collect(root)</text>
+        </g>
+        <!-- rules -->
+        <g class="node" data-k="rules" tabindex="0" role="button" aria-label="internal/rules">
+          <rect x="400" y="18" width="122" height="56" rx="10"/>
+          <text x="418" y="42">rules</text>
+          <text x="418" y="59" class="sub">builtin ⊕ custom</text>
+        </g>
+        <!-- engine -->
+        <g class="node" data-k="engine" tabindex="0" role="button" aria-label="internal/engine">
+          <rect x="400" y="95" width="122" height="62" rx="10"/>
+          <text x="418" y="122">engine</text>
+          <text x="418" y="140" class="sub">pass·fail·unknown</text>
+        </g>
+        <!-- report -->
+        <g class="node" data-k="report" tabindex="0" role="button" aria-label="internal/report">
+          <rect x="578" y="95" width="128" height="62" rx="10"/>
+          <text x="596" y="122">report</text>
+          <text x="596" y="140" class="sub">table·json·sarif</text>
+        </g>
+        <!-- baseline -->
+        <g class="node" data-k="baseline" tabindex="0" role="button" aria-label="internal/baseline">
+          <rect x="400" y="220" width="122" height="62" rx="10"/>
+          <text x="418" y="247">baseline</text>
+          <text x="418" y="265" class="sub">snapshot · diff</text>
+        </g>
+        <path class="flow" d="M344 126 H396"/>
+        <path class="flow" d="M461 74 V91"/>
+        <path class="flow" d="M522 126 H574"/>
+        <path class="flow" d="M300 157 C300 251, 340 251, 396 251"/>
+        <path class="flow" d="M522 251 C560 251, 620 220, 638 161"/>
+        <text x="300" y="316" class="src"><tspan fill="#5f6a7a" font-size="11" font-family="JetBrains Mono">exit codes: 0 clean · 1 findings · 2 drift · 3 error</tspan></text>
+      </svg>
+      <aside class="arch-panel" id="arch-panel" aria-live="polite">
+        <h3>internal/engine</h3>
+        <p></p>
+        <div class="k"></div>
+      </aside>
+    </div>
+  </div>
+</section>
+
+<!-- ================= THREE-STATE ================= -->
+<section>
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <p class="eyebrow">internal/engine — three-state evaluation</p>
+      <h2>Missing data is never a failure.</h2>
+      <p>Fleets are heterogeneous: kernels differ in version, config exposure, and the privileges kspect runs with. Tools that fail on what they can't see get uninstalled in a week. kspect's answer is a third state.</p>
+    </div>
+    <div class="tri reveal">
+      <div class="card pass"><span class="tag">PASS</span><h3>Verified in place</h3><p>The value was read from the kernel and satisfies the check. Sorted last in output — you review problems, not confirmations.</p></div>
+      <div class="card fail"><span class="tag">FAIL</span><h3>Verified violation</h3><p>The value was read and violates the control. Every failure carries the observed value, the expectation, an attacker-centric rationale, and a copy-pasteable fix.</p></div>
+      <div class="card unk"><span class="tag">UNKNOWN</span><h3>Couldn't verify</h3><p>The key doesn't exist on this kernel, or the source is unreadable at this privilege. Reported — reduced visibility stays visible — but it never trips the CI gate.</p></div>
+    </div>
+    <p class="callout reveal"><strong>Why this matters:</strong> <code>kernel.io_uring_disabled</code> doesn't exist before Linux 6.6. A binary tool reports that as FAIL on every older kernel in your fleet — noise that erodes trust. kspect reports <code>unknown</code>, keeps it out of the gate, and still counts it in the summary.</p>
+  </div>
+</section>
+
+<!-- ================= FEATURES ================= -->
+<section id="features">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <p class="eyebrow">README.md#why-kspect</p>
+      <h2>Built to be wired in, not run once.</h2>
+    </div>
+    <div class="grid c3">
+      <div class="card reveal">
+        <div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><path d="M12 3v18M3 12h18"/></svg></div>
+        <h3>Runtime + build-time, one scan</h3>
+        <p>Sysctls, boot parameters, kernel config, loaded modules, CPU vulnerability files, active LSMs, and lockdown state — the config the kernel was built with <em>and</em> the state it's running in.</p>
+        <span class="path">internal/facts</span>
+      </div>
+      <div class="card reveal">
+        <div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 7h16M4 12h16M4 17h10"/><circle cx="19" cy="17" r="2.5"/></svg></div>
+        <h3>Policy as code</h3>
+        <p>Rules are reviewable JSON. Layer an org ruleset over the builtins: override severity, disable with a documented reason, add your own controls — all diffable in a PR.</p>
+        <span class="path">examples/custom-rules.json</span>
+      </div>
+      <div class="card reveal">
+        <div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7z"/><path d="M9 12l2 2 4-4"/></svg></div>
+        <h3>SARIF for code scanning</h3>
+        <p>Kernel posture regressions land in the same GitHub review surface as application findings — with per-rule help text and severity mapping. Security teams and platform teams see the same thing.</p>
+        <span class="path">kspect scan --format sarif</span>
+      </div>
+      <div class="card reveal">
+        <div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 17l5-5 4 4 8-8"/><path d="M15 8h5v5"/></svg></div>
+        <h3>Baseline &amp; drift</h3>
+        <p>Snapshot the full posture after hardening. Any later deviation — a sysctl reset by an upgrade, a module loaded overnight — is a typed change and exit code 2.</p>
+        <span class="path">kspect baseline · kspect diff</span>
+      </div>
+      <div class="card reveal">
+        <div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 9.5l3 2.5-3 2.5M13 15h4"/></svg></div>
+        <h3>Every finding is actionable</h3>
+        <p>Observed value, expected value, what an attacker gains, and the exact command that fixes it. "Best practice" is not a rationale in this ruleset.</p>
+        <span class="path">internal/rules/builtin.json</span>
+      </div>
+      <div class="card reveal">
+        <div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M20 7L12 3 4 7v10l8 4 8-4z"/><path d="M12 12l8-5M12 12L4 7m8 5v9"/></svg></div>
+        <h3>Zero dependencies</h3>
+        <p>Pure Go stdlib. A 2&nbsp;MB static binary you can <code>scp</code> anywhere, run from a <code>FROM scratch</code> container, and audit in one sitting. Fleet-privileged tools deserve a minimal supply chain.</p>
+        <span class="path">go.mod — no requires</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= WORKFLOW DEMO ================= -->
+<section id="demo">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <p class="eyebrow">examples/ — captured output, not mockups</p>
+      <h2>One tool, four outputs.</h2>
+      <p>Everything below is genuine kspect output from the repository's intentionally-weak test fixture.</p>
+    </div>
+    <div class="tabs reveal">
+      <div class="tablist" role="tablist" aria-label="Output formats">
+        <button role="tab" id="t-scan" aria-controls="p-scan" aria-selected="true">scan</button>
+        <button role="tab" id="t-json" aria-controls="p-json" aria-selected="false" tabindex="-1">--format json</button>
+        <button role="tab" id="t-sarif" aria-controls="p-sarif" aria-selected="false" tabindex="-1">--format sarif</button>
+        <button role="tab" id="p-t-diff" aria-controls="p-diff" aria-selected="false" tabindex="-1">diff (drift)</button>
+      </div>
+      <div class="tabpanel" id="p-scan" role="tabpanel" aria-labelledby="t-scan"><pre><span class="c-p">$</span> <span class="c-cmd">kspect scan --root testdata/rootfs-weak</span>
+<span class="c-dim">kspect scan — kernel 5.15.0-generic (x86_64)</span>
+
+<span class="c-fail">FAIL</span> <span class="c-sev">HIGH</span>    KSPECT-CMDLINE-001   CPU vulnerability mitigations not globally disabled
+     <span class="c-dim">observed: cmdline mitigations = "off"</span>
+     <span class="c-dim">expected: cmdline mitigations != off</span>
+     <span class="c-fix">fix:      Remove mitigations=off from the kernel command line and reboot.</span>
+<span class="c-fail">FAIL</span> <span class="c-sev">HIGH</span>    KSPECT-MITIG-001     No unmitigated CPU vulnerabilities
+     <span class="c-dim">observed: meltdown: Vulnerable; spectre_v2: Vulnerable, IBPB: disabled, STIBP: disabled</span>
+     <span class="c-fix">fix:      Update the kernel and CPU microcode; remove any mitigation-disabling boot parameters.</span>
+<span class="c-fail">FAIL</span> <span class="c-sev">HIGH</span>    KSPECT-SYSCTL-003    Unprivileged BPF disabled
+     <span class="c-dim">observed: sysctl kernel.unprivileged_bpf_disabled = "0"</span>
+     <span class="c-fix">fix:      sysctl -w kernel.unprivileged_bpf_disabled=1</span>
+<span class="c-dim">… 28 more findings …</span>
+
+<span class="c-dim">Summary: 48 checks — <span class="c-fail">31 fail</span>, 4 pass, <span class="c-unk">13 unknown</span> (8 high, 15 medium, 8 low)</span></pre></div>
+      <div class="tabpanel" id="p-json" role="tabpanel" aria-labelledby="t-json" hidden><pre><span class="c-p">$</span> <span class="c-cmd">kspect scan --format json | jq '.findings[0]'</span>
+{
+  "rule_id": "KSPECT-CMDLINE-001",
+  "title": "CPU vulnerability mitigations not globally disabled",
+  "severity": "high",
+  "status": "fail",
+  "observed": "cmdline mitigations = \"off\"",
+  "expected": "cmdline mitigations != off",
+  "rationale": "mitigations=off disables every hardware vulnerability mitigation
+                (Spectre, Meltdown, MDS, ...), re-exposing the host to
+                well-understood cross-boundary attacks.",
+  "remediation": "Remove mitigations=off from the kernel command line and reboot.",
+  "tags": ["cmdline", "cpu", "server", "container-host", "workstation"],
+  "refs": ["https://docs.kernel.org/admin-guide/kernel-parameters.html"]
+}</pre></div>
+      <div class="tabpanel" id="p-sarif" role="tabpanel" aria-labelledby="t-sarif" hidden><pre><span class="c-p">$</span> <span class="c-cmd">kspect scan --format sarif | jq '.runs[0].tool.driver.rules[0]'</span>
+{
+  "id": "KSPECT-CMDLINE-001",
+  "shortDescription": { "text": "CPU vulnerability mitigations not globally disabled" },
+  "fullDescription":  { "text": "mitigations=off disables every hardware vulnerability
+                                 mitigation (Spectre, Meltdown, MDS, ...) ..." },
+  "help": { "text": "Remove mitigations=off from the kernel command line and reboot." },
+  "properties": { "severity": "high", "tags": ["cmdline", "cpu", "server", "..."] }
+}
+<span class="c-dim"># SARIF 2.1.0 — upload with github/codeql-action/upload-sarif</span></pre></div>
+      <div class="tabpanel" id="p-diff" role="tabpanel" aria-labelledby="p-t-diff" hidden><pre><span class="c-p">$</span> <span class="c-cmd">kspect baseline /var/lib/kspect/golden.json</span>   <span class="c-dim"># once, after hardening</span>
+<span class="c-dim">kspect: baseline written (912 sysctls, 141 modules, kernel 6.8.0-generic)</span>
+
+<span class="c-p">$</span> <span class="c-cmd">kspect diff /var/lib/kspect/golden.json</span>        <span class="c-dim"># hourly, from a systemd timer</span>
+Drift detected: 1 change(s) since baseline 2026-07-02T01:18:18Z
+
+  ~ sysctl     kernel.kptr_restrict     <span class="c-pass">"2"</span> -> <span class="c-fail">"0"</span>
+
+<span class="c-p">$</span> <span class="c-cmd">echo $?</span>
+2   <span class="c-dim"># drift → alert</span></pre></div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= SECURITY + THREAT MODEL ================= -->
+<section id="security">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <p class="eyebrow">docs/THREAT_MODEL.md</p>
+      <h2>The threat model goes both ways.</h2>
+      <p>What kspect defends against — and what a fleet-privileged auditor must defend in itself.</p>
+    </div>
+    <div class="duo reveal">
+      <div>
+        <h3>What the ruleset targets</h3>
+        <ul>
+          <li><b>Local privilege escalation via kernel bugs</b> — closes reachability (unprivileged eBPF, io_uring, userfaultfd, DCCP/RDS/TIPC/SCTP autoload) and exploitation aids (pointer leaks, disabled KASLR, NULL-page mapping, slab determinism).</li>
+          <li><b>Cross-boundary hardware attacks</b> — reads the kernel's own verdict in <code>/sys/…/vulnerabilities</code> and catches <code>mitigations=off</code>-class kill switches on the command line.</li>
+          <li><b>Kernel integrity after root</b> — module signing, lockdown, kexec restrictions, <code>/dev/mem</code> access controls that turn a root compromise into a rootkit.</li>
+          <li><b>Hardening decay</b> — baseline + drift turns "we hardened it last quarter" into a continuously verified invariant.</li>
+          <li><b>Classic local attacks</b> — /tmp link races, setuid core-dump leaks, same-user ptrace injection, on-host network hygiene.</li>
+        </ul>
+      </div>
+      <div>
+        <h3>kspect's own attack surface</h3>
+        <ul>
+          <li><b>Strictly read-only.</b> No writes, no network, no syscalls beyond open/read/stat. Remediation strings are printed, never executed — an auditor that runs strings from policy files is an RCE feature.</li>
+          <li><b>Hostile input assumed.</b> On a compromised host, <code>/proc</code> is attacker-influenced: reads are size-capped, parsers are non-recursive, observed values are escaped before terminal output.</li>
+          <li><b>Policy files can't execute.</b> Rulesets and baselines are schema-validated JSON decoded into typed structs; the worst a tampered file yields is a wrong report.</li>
+          <li><b>Minimal supply chain.</b> Zero third-party modules; releases ship SHA-256 checksums; the container is <code>FROM scratch</code>, runs as nobody, mounts the host read-only.</li>
+          <li><b>Honest limits.</b> A kernel-resident attacker can lie to any on-host auditor. kspect claims point-of-audit integrity, not post-compromise forensics.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= KERNEL SURFACE MAP ================= -->
+<section>
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <p class="eyebrow">internal/rules/builtin.json — 48 rules by kernel surface</p>
+      <h2>Where the checks look.</h2>
+      <p>kspect audits configuration through stable kernel interfaces — no probes injected, no kernel modules, nothing loaded into ring 0.</p>
+    </div>
+    <svg class="surface-svg reveal" id="surface" viewBox="0 0 720 300" role="img" aria-label="Rule count per kernel surface: sysctl 23, kconfig 11, cmdline 6, modules 4, LSM and lockdown 3, CPU mitigations 1">
+      <g transform="translate(0,10)">
+        <text class="lbl" x="0" y="16">sysctl</text><text class="pathlbl" x="0" y="32">/proc/sys/**</text>
+        <rect class="track" x="185" y="4" width="440" height="18" rx="4"/><rect class="fillbar" x="185" y="4" width="0" data-w="440" height="18" rx="4" style="transition:width .9s cubic-bezier(.22,1,.36,1)"/><text class="cnt" x="640" y="18">23</text>
+      </g>
+      <g transform="translate(0,58)">
+        <text class="lbl" x="0" y="16">kconfig</text><text class="pathlbl" x="0" y="32">/proc/config.gz · /boot/config-*</text>
+        <rect class="track" x="185" y="4" width="440" height="18" rx="4"/><rect class="fillbar" x="185" y="4" width="0" data-w="210" height="18" rx="4" style="transition:width .9s cubic-bezier(.22,1,.36,1) .08s"/><text class="cnt" x="640" y="18">11</text>
+      </g>
+      <g transform="translate(0,106)">
+        <text class="lbl" x="0" y="16">boot cmdline</text><text class="pathlbl" x="0" y="32">/proc/cmdline</text>
+        <rect class="track" x="185" y="4" width="440" height="18" rx="4"/><rect class="fillbar" x="185" y="4" width="0" data-w="115" height="18" rx="4" style="transition:width .9s cubic-bezier(.22,1,.36,1) .16s"/><text class="cnt" x="640" y="18">6</text>
+      </g>
+      <g transform="translate(0,154)">
+        <text class="lbl" x="0" y="16">modules</text><text class="pathlbl" x="0" y="32">/proc/modules</text>
+        <rect class="track" x="185" y="4" width="440" height="18" rx="4"/><rect class="fillbar" x="185" y="4" width="0" data-w="77" height="18" rx="4" style="transition:width .9s cubic-bezier(.22,1,.36,1) .24s"/><text class="cnt" x="640" y="18">4</text>
+      </g>
+      <g transform="translate(0,202)">
+        <text class="lbl" x="0" y="16">LSM · lockdown</text><text class="pathlbl" x="0" y="32">/sys/kernel/security</text>
+        <rect class="track" x="185" y="4" width="440" height="18" rx="4"/><rect class="fillbar" x="185" y="4" width="0" data-w="58" height="18" rx="4" style="transition:width .9s cubic-bezier(.22,1,.36,1) .32s"/><text class="cnt" x="640" y="18">3</text>
+      </g>
+      <g transform="translate(0,250)">
+        <text class="lbl" x="0" y="16">CPU mitigations</text><text class="pathlbl" x="0" y="32">/sys/devices/system/cpu/vulnerabilities</text>
+        <rect class="track" x="185" y="4" width="440" height="18" rx="4"/><rect class="fillbar" x="185" y="4" width="0" data-w="20" height="18" rx="4" style="transition:width .9s cubic-bezier(.22,1,.36,1) .4s"/><text class="cnt" x="640" y="18">1</text>
+      </g>
+    </svg>
+    <p class="cmp-note reveal">The mitigations rule is one rule that fans out across every entry the kernel publishes — Spectre variants, Meltdown, MDS, Retbleed, and whatever your kernel version knows about.</p>
+  </div>
+</section>
+
+<!-- ================= PERFORMANCE ================= -->
+<section id="perf">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <p class="eyebrow">measured, not estimated</p>
+      <h2>Fast enough to run everywhere, always.</h2>
+      <p>kspect reads a few hundred small virtual files and compares strings. There is no daemon, no database, no background agent.</p>
+    </div>
+    <div class="perf reveal">
+      <div class="card"><div class="n">28<small> ms</small></div><div class="why">full 48-check scan of a live kernel, including a complete /proc/sys walk</div></div>
+      <div class="card"><div class="n">2.0<small> MB</small></div><div class="why">static stripped binary — fits in an initramfs, ships in a scratch container</div></div>
+      <div class="card"><div class="n">0<small> daemons</small></div><div class="why">run on demand: CI step, cron job, systemd timer, or one-off during IR triage</div></div>
+      <div class="card"><div class="n">2,250<small> LOC</small></div><div class="why">small enough to audit before you grant it fleet-wide root</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= INSTALL + QUICKSTART ================= -->
+<section id="install">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <p class="eyebrow">README.md#install</p>
+      <h2>Install in one line.</h2>
+      <p>Root gives complete coverage; unprivileged runs still work — inaccessible sources simply report <code>unknown</code>.</p>
+    </div>
+    <div class="tabs reveal" style="margin-bottom:26px">
+      <div class="tablist" role="tablist" aria-label="Install methods">
+        <button role="tab" id="t-bin" aria-controls="p-bin" aria-selected="true">binary</button>
+        <button role="tab" id="t-src" aria-controls="p-src" aria-selected="false" tabindex="-1">go install</button>
+        <button role="tab" id="t-ctr" aria-controls="p-ctr" aria-selected="false" tabindex="-1">container</button>
+      </div>
+      <div class="tabpanel" id="p-bin" role="tabpanel" aria-labelledby="t-bin">
+        <button class="copy-btn" data-copy="c-bin">copy</button>
+        <pre id="c-bin">curl -LO https://github.com/5h4rk-lab/kspect/releases/latest/download/kspect_linux_amd64
+chmod +x kspect_linux_amd64 && sudo mv kspect_linux_amd64 /usr/local/bin/kspect</pre>
+      </div>
+      <div class="tabpanel" id="p-src" role="tabpanel" aria-labelledby="t-src" hidden>
+        <button class="copy-btn" data-copy="c-src">copy</button>
+        <pre id="c-src">go install github.com/5h4rk-lab/kspect/cmd/kspect@latest</pre>
+      </div>
+      <div class="tabpanel" id="p-ctr" role="tabpanel" aria-labelledby="t-ctr" hidden>
+        <button class="copy-btn" data-copy="c-ctr">copy</button>
+        <pre id="c-ctr"># audits the host through a read-only bind mount; image is FROM scratch
+docker run --rm -v /:/host:ro ghcr.io/5h4rk-lab/kspect scan --root /host</pre>
+      </div>
+    </div>
+
+    <div class="grid c2 reveal">
+      <div class="card">
+        <h3>Quick start</h3>
+        <pre class="mono" style="margin-top:12px;font-size:12.5px;line-height:1.7;color:#aeb8c6;overflow-x:auto"><span style="color:var(--amber)">$</span> kspect scan                      <span style="color:var(--faint)"># audit, human-readable</span>
+<span style="color:var(--amber)">$</span> kspect scan --fail-on high      <span style="color:var(--faint)"># CI gate on high severity</span>
+<span style="color:var(--amber)">$</span> kspect scan --tags container-host --format sarif
+<span style="color:var(--amber)">$</span> kspect baseline golden.json     <span style="color:var(--faint)"># snapshot after hardening</span>
+<span style="color:var(--amber)">$</span> kspect diff golden.json         <span style="color:var(--faint)"># exit 2 on any drift</span>
+<span style="color:var(--amber)">$</span> kspect rules --rules org.json   <span style="color:var(--faint)"># show effective policy</span></pre>
+      </div>
+      <div class="card">
+        <h3>Profiles &amp; policy</h3>
+        <p style="margin-top:10px">Scope a scan with tags — <code>server</code>, <code>container-host</code>, <code>workstation</code>, <code>network</code>, <code>kspp</code> — and layer org policy over the builtins with <code>--rules</code>: same rule ID overrides, <code>"disabled": true</code> suppresses with a documented reason, new IDs append.</p>
+        <p style="margin-top:10px">Sources: <code>sysctl</code>, <code>kconfig</code>, <code>cmdline</code>, <code>module</code>, <code>mitigation</code>, <code>securityfs</code>. Operators: <code>equals</code>, <code>one_of</code>, <code>contains</code>, <code>present</code>, <code>absent</code>, <code>min</code>, <code>max</code> and negations.</p>
+        <span class="path" style="display:block;margin-top:14px;font:450 11.5px var(--mono);color:var(--faint)">examples/custom-rules.json</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= USE CASES ================= -->
+<section id="uses">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <p class="eyebrow">examples/ — four deployment patterns</p>
+      <h2>Where it earns its keep.</h2>
+    </div>
+    <div class="uses">
+      <div class="card reveal">
+        <h3>CI gate for VM &amp; node images</h3>
+        <p>Fail the image build if the kernel posture regresses; surface findings in GitHub code scanning.</p>
+        <pre><span class="c-p">-</span> run: kspect scan --tags container-host --fail-on high \
+       --format sarif > kspect.sarif
+<span class="c-p">-</span> uses: github/codeql-action/upload-sarif@v3</pre>
+      </div>
+      <div class="card reveal">
+        <h3>Fleet drift monitoring</h3>
+        <p>A hardened systemd timer runs hourly; exit 2 fails the unit and lands in your existing alerting.</p>
+        <pre>ExecStart=/usr/local/bin/kspect diff /var/lib/kspect/golden.json
+<span class="c-p">#</span> ProtectSystem=strict · PrivateNetwork=yes · CapabilityBoundingSet=</pre>
+      </div>
+      <div class="card reveal">
+        <h3>Incident-response triage</h3>
+        <p>One static binary, no install, no network. Is this box in the state we hardened it to? Did anything change since the golden baseline?</p>
+        <pre><span class="c-p">$</span> scp kspect ir-host: && ssh ir-host ./kspect diff golden.json</pre>
+      </div>
+      <div class="card reveal">
+        <h3>Offline image auditing</h3>
+        <p>Point <code>--root</code> at a mounted image or forensic copy to audit boot-time posture without booting it.</p>
+        <pre><span class="c-p">$</span> kspect scan --root /mnt/image --tags kspp</pre>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= COMPARISON ================= -->
+<section id="compare">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <p class="eyebrow">docs/DESIGN_DECISIONS.md — D-1</p>
+      <h2>Different tools, different jobs.</h2>
+      <p>kspect doesn't replace runtime detection, and runtime detection doesn't audit posture. Here's the honest map.</p>
+    </div>
+    <div class="cmp-scroll reveal">
+      <table class="cmp">
+        <thead><tr>
+          <th scope="col">capability</th>
+          <th scope="col" class="hl">kspect</th>
+          <th scope="col">kernel-hardening-checker</th>
+          <th scope="col">Lynis</th>
+          <th scope="col">Falco / Tetragon</th>
+        </tr></thead>
+        <tbody>
+          <tr><th scope="row">Runtime state (sysctl, cmdline, modules, mitigations)</th><td class="y hl">yes</td><td class="p">partial</td><td class="p">partial</td><td class="n">—</td></tr>
+          <tr><th scope="row">Kernel build config (kconfig)</th><td class="y hl">yes</td><td class="y">yes — deepest coverage</td><td class="n">—</td><td class="n">—</td></tr>
+          <tr><th scope="row">Baseline snapshots &amp; drift detection</th><td class="y hl">yes</td><td class="n">—</td><td class="n">—</td><td class="n">—</td></tr>
+          <tr><th scope="row">Three-state results (unknown ≠ fail)</th><td class="y hl">yes</td><td class="n">—</td><td class="n">—</td><td class="n">n/a</td></tr>
+          <tr><th scope="row">SARIF / code-scanning integration</th><td class="y hl">yes</td><td class="n">—</td><td class="n">—</td><td class="n">—</td></tr>
+          <tr><th scope="row">Policy-as-code overrides in reviewable files</th><td class="y hl">yes</td><td class="p">partial</td><td class="p">profiles</td><td class="y">rules</td></tr>
+          <tr><th scope="row">Runtime behavior detection (events, syscalls)</th><td class="n hl">no — by design</td><td class="n">—</td><td class="n">—</td><td class="y">yes — this is their job</td></tr>
+          <tr><th scope="row">Scope beyond the kernel (services, PAM, filesystems…)</th><td class="n hl">no — kernel only</td><td class="n">—</td><td class="y">yes, very broad</td><td class="n">—</td></tr>
+          <tr><th scope="row">Dependencies on the audited host</th><td class="y hl">none — static binary</td><td class="p">Python</td><td class="p">shell + tools</td><td class="p">agent/daemon</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="cmp-note reveal">Run kspect for posture and drift; keep kernel-hardening-checker if you want maximal kconfig depth; keep Lynis for whole-system breadth; pair with Falco or Tetragon for runtime telemetry. They compose.</p>
+  </div>
+</section>
+
+<!-- ================= FAQ ================= -->
+<section id="faq">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <p class="eyebrow">$ man kspect — frequently asked</p>
+      <h2>FAQ</h2>
+    </div>
+    <div class="faq reveal">
+      <details><summary>Does kspect need root?</summary><p>No, but root gives complete coverage — some sysctls and all of securityfs are root-only. Unprivileged runs degrade gracefully: unreadable sources report <code>unknown</code> and never trip the gate, and the summary shows exactly how much visibility you had.</p></details>
+      <details><summary>Will it change anything on my system?</summary><p>Never. kspect is strictly read-only — no writes, no network, no syscalls beyond open/read/stat. Fixes are printed as text for you to apply; they are never executed. This is a hard design line, not a default.</p></details>
+      <details><summary>How does it avoid false positives?</summary><p>Three-state evaluation. A check only fails when the value was actually read from the kernel and actually violates the rule. Keys absent on your kernel version, or sources you lack privilege to read, report <code>unknown</code>. Advisory rules are severity <code>info</code>, render as NOTE, and never gate by default.</p></details>
+      <details><summary>Which distributions and kernels are supported?</summary><p>Any Linux that exposes the standard interfaces — /proc/sys, /proc/cmdline, /proc/modules, and sysfs — which is effectively all of them. Kconfig is read from <code>/proc/config.gz</code> or <code>/boot/config-*</code> when present; when it isn't, those eleven rules report unknown rather than failing.</p></details>
+      <details><summary>Why JSON rules instead of YAML?</summary><p>Two reasons: parsing YAML would require kspect's first third-party dependency, and YAML's implicit typing (<code>no</code> → false) is a footgun in security policy files. The cost — no comments — is mitigated by <code>rationale</code> being a required schema field.</p></details>
+      <details><summary>Is this a Falco/Tetragon alternative?</summary><p>No. Those detect runtime behavior; kspect audits configuration. A hardened posture reduces what an attacker can reach, and runtime detection catches what they do anyway — you want both, and they don't overlap.</p></details>
+      <details><summary>Can I add my organization's own rules?</summary><p>Yes — <code>--rules org.json</code> layers your ruleset over the builtins. Same ID overrides (retune severity, or disable with a documented reason); new IDs append. The whole policy lives in a file your team reviews in pull requests.</p></details>
+      <details><summary>Can a compromised host fool kspect?</summary><p>A kernel-resident attacker can lie to any on-host auditor — kspect's threat model says so explicitly. Its claim is point-of-audit integrity and drift detection, not post-compromise forensics. Defensive parsing (size caps, escaping) ensures hostile /proc content can corrupt at most the report, never the tool.</p></details>
+    </div>
+  </div>
+</section>
+
+<!-- ================= ROADMAP ================= -->
+<section id="roadmap">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <p class="eyebrow">docs/ROADMAP.md</p>
+      <h2>Where it's going.</h2>
+    </div>
+    <div class="road reveal">
+      <div class="rel"><h3>v0.1 — shipped</h3><p>48-rule audit across six kernel surfaces · three-state engine · baseline &amp; drift · table/JSON/SARIF · policy overlays · scratch container · stable exit-code contract.</p></div>
+      <div class="rel dim"><h3>v0.2 — fleet ergonomics</h3><p>NDJSON for log shippers · drift ignore-lists for expected churn · Prometheus textfile output so posture becomes a dashboarded metric · ruleset-to-Markdown docs generator.</p></div>
+      <div class="rel dim"><h3>v0.3 — deeper collection, still read-only</h3><p>Installed-vs-running kernel divergence · modprobe.d blacklist awareness (not loaded vs cannot load) · Landlock/seccomp availability · per-container reachability analysis (RFC).</p></div>
+      <div class="rel dim"><h3>v0.4 — ecosystem</h3><p>Signed ruleset updates decoupled from binary releases · CIS section mapping · deb/rpm/nix packaging · kubectl plugin and DaemonSet for cluster-wide node audits.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= CONTRIBUTE / DOCS / COMMUNITY ================= -->
+<section id="docs" class="contrib">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <p class="eyebrow">CONTRIBUTING.md</p>
+      <h2>The ruleset is the product. Help build it.</h2>
+      <p>A rule PR ships with fixture coverage, an attacker-centric rationale, and a false-positive analysis. Rules that fire on stock distro configs need strong justification — credibility is the whole value.</p>
+    </div>
+    <div class="grid c3 reveal">
+      <div class="card"><h3>Read the docs</h3><p>Architecture, the two-way threat model, and a living engineering log of decisions, rejected alternatives, and lessons learned.</p><p style="margin-top:12px"><a href="https://github.com/5h4rk-lab/kspect/tree/main/docs">github.com/5h4rk-lab/kspect/docs →</a></p></div>
+      <div class="card"><h3>Contribute a rule</h3><p>Pick a control, write the JSON, extend both test fixtures, open a PR. The contribution guide walks through all three steps.</p><p style="margin-top:12px"><a href="https://github.com/5h4rk-lab/kspect/blob/main/CONTRIBUTING.md">CONTRIBUTING.md →</a></p></div>
+      <div class="card"><h3>Report &amp; discuss</h3><p>Bugs and feature requests in issues; vulnerabilities in kspect itself privately via GitHub security advisories.</p><p style="margin-top:12px"><a href="https://github.com/5h4rk-lab/kspect/issues">Issues →</a> · <a href="https://github.com/5h4rk-lab/kspect/blob/main/SECURITY.md">SECURITY.md →</a></p></div>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer class="foot">
+  <div class="wrap">
+    <a class="brand" href="#top">
+      <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><rect x="1" y="1" width="18" height="18" rx="4" fill="none" stroke="#ffb454" stroke-width="1.6"/><rect x="5" y="5.5" width="6" height="2.4" rx="1.2" fill="#f0555c"/><rect x="5" y="9" width="10" height="2.4" rx="1.2" fill="#4cc38a"/><rect x="5" y="12.5" width="4" height="2.4" rx="1.2" fill="#7c8ba1"/></svg>
+      kspect
+    </a>
+    <div class="cols">
+      <div><h4>PROJECT</h4><ul>
+        <li><a href="https://github.com/5h4rk-lab/kspect">GitHub</a></li>
+        <li><a href="https://github.com/5h4rk-lab/kspect/releases">Releases</a></li>
+        <li><a href="https://github.com/5h4rk-lab/kspect/blob/main/CHANGELOG.md">Changelog</a></li>
+      </ul></div>
+      <div><h4>DOCS</h4><ul>
+        <li><a href="https://github.com/5h4rk-lab/kspect/blob/main/docs/ARCHITECTURE.md">Architecture</a></li>
+        <li><a href="https://github.com/5h4rk-lab/kspect/blob/main/docs/THREAT_MODEL.md">Threat model</a></li>
+        <li><a href="https://github.com/5h4rk-lab/kspect/blob/main/docs/DESIGN_DECISIONS.md">Design decisions</a></li>
+        <li><a href="https://github.com/5h4rk-lab/kspect/blob/main/docs/ROADMAP.md">Roadmap</a></li>
+      </ul></div>
+      <div><h4>COMMUNITY</h4><ul>
+        <li><a href="https://github.com/5h4rk-lab/kspect/issues">Issues</a></li>
+        <li><a href="https://github.com/5h4rk-lab/kspect/blob/main/CONTRIBUTING.md">Contributing</a></li>
+        <li><a href="https://github.com/5h4rk-lab/kspect/blob/main/SECURITY.md">Security policy</a></li>
+      </ul></div>
+    </div>
+    <div class="fine">
+      <span>Apache-2.0 · built by <a href="https://github.com/5h4rk-lab">5h4rk-lab</a></span>
+      <span class="mono" style="font-size:12px">exit 0 · clean</span>
+    </div>
+  </div>
+</footer>
+
+<script src="assets/site.js" defer></script>
+</body>
+</html>

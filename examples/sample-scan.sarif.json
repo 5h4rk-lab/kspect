@@ -1,0 +1,1355 @@
+{
+  "version": "2.1.0",
+  "$schema": "https://docs.oasis-open.org/sarif/sarif/v2.1.0/errata01/os/schemas/sarif-schema-2.1.0.json",
+  "runs": [
+    {
+      "tool": {
+        "driver": {
+          "name": "kspect",
+          "informationUri": "https://github.com/5h4rk-lab/kspect",
+          "version": "dev",
+          "rules": [
+            {
+              "id": "KSPECT-CMDLINE-001",
+              "name": "KSPECT-CMDLINE-001",
+              "shortDescription": {
+                "text": "CPU vulnerability mitigations not globally disabled"
+              },
+              "fullDescription": {
+                "text": "mitigations=off disables every hardware vulnerability mitigation (Spectre, Meltdown, MDS, ...), re-exposing the host to well-understood cross-boundary attacks."
+              },
+              "help": {
+                "text": "Remove mitigations=off from the kernel command line and reboot."
+              },
+              "properties": {
+                "severity": "high",
+                "tags": [
+                  "cmdline",
+                  "cpu",
+                  "server",
+                  "container-host",
+                  "workstation"
+                ]
+              },
+              "defaultConfiguration": {
+                "level": "error"
+              }
+            },
+            {
+              "id": "KSPECT-CMDLINE-002",
+              "name": "KSPECT-CMDLINE-002",
+              "shortDescription": {
+                "text": "KASLR not disabled at boot"
+              },
+              "fullDescription": {
+                "text": "nokaslr places the kernel at a fixed address, removing the primary probabilistic defense against kernel exploits."
+              },
+              "help": {
+                "text": "Remove nokaslr from the kernel command line."
+              },
+              "properties": {
+                "severity": "high",
+                "tags": [
+                  "cmdline",
+                  "memory-safety",
+                  "server",
+                  "container-host",
+                  "workstation"
+                ]
+              },
+              "defaultConfiguration": {
+                "level": "error"
+              }
+            },
+            {
+              "id": "KSPECT-CMDLINE-003",
+              "name": "KSPECT-CMDLINE-003",
+              "shortDescription": {
+                "text": "SMEP/SMAP not disabled at boot"
+              },
+              "fullDescription": {
+                "text": "nosmep/nosmap let the kernel execute or access attacker-controlled userspace memory — a decisive advantage for kernel exploits."
+              },
+              "help": {
+                "text": "Remove nosmep and nosmap from the kernel command line."
+              },
+              "properties": {
+                "severity": "high",
+                "tags": [
+                  "cmdline",
+                  "cpu",
+                  "server",
+                  "container-host",
+                  "workstation"
+                ]
+              },
+              "defaultConfiguration": {
+                "level": "error"
+              }
+            },
+            {
+              "id": "KSPECT-LSM-001",
+              "name": "KSPECT-LSM-001",
+              "shortDescription": {
+                "text": "A major LSM is active (SELinux/AppArmor/Smack/TOMOYO)"
+              },
+              "fullDescription": {
+                "text": "Mandatory access control confines services and containers, containing the blast radius of userspace compromise. Its absence removes an entire defense layer."
+              },
+              "help": {
+                "text": "Enable AppArmor or SELinux for your distribution and verify with: cat /sys/kernel/security/lsm"
+              },
+              "properties": {
+                "severity": "high",
+                "tags": [
+                  "lsm",
+                  "server",
+                  "container-host",
+                  "workstation"
+                ]
+              },
+              "defaultConfiguration": {
+                "level": "error"
+              }
+            },
+            {
+              "id": "KSPECT-MITIG-001",
+              "name": "KSPECT-MITIG-001",
+              "shortDescription": {
+                "text": "No unmitigated CPU vulnerabilities"
+              },
+              "fullDescription": {
+                "text": "Entries under /sys/devices/system/cpu/vulnerabilities reporting 'Vulnerable' indicate hardware attacks (transient execution, MDS, Retbleed, ...) that the running kernel is not mitigating."
+              },
+              "help": {
+                "text": "Update the kernel and CPU microcode; remove any mitigation-disabling boot parameters."
+              },
+              "properties": {
+                "severity": "high",
+                "tags": [
+                  "cpu",
+                  "mitigations",
+                  "server",
+                  "container-host",
+                  "workstation"
+                ]
+              },
+              "defaultConfiguration": {
+                "level": "error"
+              }
+            },
+            {
+              "id": "KSPECT-SYSCTL-001",
+              "name": "KSPECT-SYSCTL-001",
+              "shortDescription": {
+                "text": "Kernel pointer addresses hidden from unprivileged users"
+              },
+              "fullDescription": {
+                "text": "kernel.kptr_restrict=0 exposes raw kernel pointers via /proc and dmesg, defeating KASLR and giving exploit developers the addresses they need."
+              },
+              "help": {
+                "text": "sysctl -w kernel.kptr_restrict=2 and persist in /etc/sysctl.d/99-hardening.conf"
+              },
+              "properties": {
+                "severity": "high",
+                "tags": [
+                  "sysctl",
+                  "info-leak",
+                  "kspp",
+                  "server",
+                  "container-host",
+                  "workstation"
+                ]
+              },
+              "defaultConfiguration": {
+                "level": "error"
+              }
+            },
+            {
+              "id": "KSPECT-SYSCTL-003",
+              "name": "KSPECT-SYSCTL-003",
+              "shortDescription": {
+                "text": "Unprivileged BPF disabled"
+              },
+              "fullDescription": {
+                "text": "Unprivileged eBPF has been the entry point for multiple verifier privilege-escalation exploits (e.g. CVE-2020-8835, CVE-2021-3490). Value 1 disables it until reboot; 2 allows re-enabling."
+              },
+              "help": {
+                "text": "sysctl -w kernel.unprivileged_bpf_disabled=1"
+              },
+              "properties": {
+                "severity": "high",
+                "tags": [
+                  "sysctl",
+                  "attack-surface",
+                  "kspp",
+                  "server",
+                  "container-host",
+                  "workstation"
+                ]
+              },
+              "defaultConfiguration": {
+                "level": "error"
+              }
+            },
+            {
+              "id": "KSPECT-SYSCTL-005",
+              "name": "KSPECT-SYSCTL-005",
+              "shortDescription": {
+                "text": "kexec of new kernels disabled"
+              },
+              "fullDescription": {
+                "text": "kexec allows replacing the running kernel, bypassing Secure Boot and lockdown; disabling it closes a persistence and integrity-bypass path."
+              },
+              "help": {
+                "text": "sysctl -w kernel.kexec_load_disabled=1 (one-way switch)"
+              },
+              "properties": {
+                "severity": "high",
+                "tags": [
+                  "sysctl",
+                  "kspp",
+                  "server",
+                  "container-host"
+                ]
+              },
+              "defaultConfiguration": {
+                "level": "error"
+              }
+            },
+            {
+              "id": "KSPECT-SYSCTL-009",
+              "name": "KSPECT-SYSCTL-009",
+              "shortDescription": {
+                "text": "Address space layout randomization fully enabled"
+              },
+              "fullDescription": {
+                "text": "randomize_va_space=2 randomizes stack, mmap, VDSO and heap; anything lower makes userspace exploitation dramatically easier."
+              },
+              "help": {
+                "text": "sysctl -w kernel.randomize_va_space=2"
+              },
+              "properties": {
+                "severity": "high",
+                "tags": [
+                  "sysctl",
+                  "memory-safety",
+                  "server",
+                  "container-host",
+                  "workstation"
+                ]
+              },
+              "defaultConfiguration": {
+                "level": "error"
+              }
+            },
+            {
+              "id": "KSPECT-CMDLINE-006",
+              "name": "KSPECT-CMDLINE-006",
+              "shortDescription": {
+                "text": "Memory zeroed on allocation (init_on_alloc)"
+              },
+              "fullDescription": {
+                "text": "Zeroing heap allocations eliminates whole classes of uninitialized-memory info leaks and makes many use-after-free bugs unexploitable."
+              },
+              "help": {
+                "text": "Add init_on_alloc=1 to the kernel command line, or build with CONFIG_INIT_ON_ALLOC_DEFAULT_ON=y."
+              },
+              "properties": {
+                "severity": "medium",
+                "tags": [
+                  "cmdline",
+                  "memory-safety",
+                  "kspp",
+                  "server",
+                  "container-host",
+                  "workstation"
+                ]
+              },
+              "defaultConfiguration": {
+                "level": "warning"
+              }
+            },
+            {
+              "id": "KSPECT-KCONFIG-011",
+              "name": "KSPECT-KCONFIG-011",
+              "shortDescription": {
+                "text": "Legacy vsyscall page disabled"
+              },
+              "fullDescription": {
+                "text": "The fixed-address legacy vsyscall page is a ready-made ROP gadget region that defeats ASLR."
+              },
+              "help": {
+                "text": "Use CONFIG_LEGACY_VSYSCALL_NONE=y or boot with vsyscall=none."
+              },
+              "properties": {
+                "severity": "medium",
+                "tags": [
+                  "kconfig",
+                  "memory-safety",
+                  "kspp",
+                  "server",
+                  "workstation"
+                ]
+              },
+              "defaultConfiguration": {
+                "level": "warning"
+              }
+            },
+            {
+              "id": "KSPECT-LSM-002",
+              "name": "KSPECT-LSM-002",
+              "shortDescription": {
+                "text": "Yama LSM stacked"
+              },
+              "fullDescription": {
+                "text": "Yama provides the ptrace_scope restriction; without it kernel.yama.ptrace_scope does not exist."
+              },
+              "help": {
+                "text": "Boot with lsm=...,yama (default on most distributions)."
+              },
+              "properties": {
+                "severity": "medium",
+                "tags": [
+                  "lsm",
+                  "server",
+                  "container-host",
+                  "workstation"
+                ]
+              },
+              "defaultConfiguration": {
+                "level": "warning"
+              }
+            },
+            {
+              "id": "KSPECT-MODULE-001",
+              "name": "KSPECT-MODULE-001",
+              "shortDescription": {
+                "text": "DCCP protocol module not loaded"
+              },
+              "fullDescription": {
+                "text": "DCCP is an obscure, rarely-used protocol with a history of remotely-reachable kernel bugs (e.g. CVE-2017-6074 double-free LPE)."
+              },
+              "help": {
+                "text": "Blacklist it: echo 'install dccp /bin/false' \u003e /etc/modprobe.d/kspect-dccp.conf"
+              },
+              "properties": {
+                "severity": "medium",
+                "tags": [
+                  "module",
+                  "attack-surface",
+                  "network",
+                  "server",
+                  "container-host"
+                ]
+              },
+              "defaultConfiguration": {
+                "level": "warning"
+              }
+            },
+            {
+              "id": "KSPECT-MODULE-003",
+              "name": "KSPECT-MODULE-003",
+              "shortDescription": {
+                "text": "TIPC protocol module not loaded"
+              },
+              "fullDescription": {
+                "text": "TIPC is a niche cluster protocol with recent remotely-triggerable heap overflows (CVE-2021-43267, CVE-2022-0435)."
+              },
+              "help": {
+                "text": "Blacklist it: echo 'install tipc /bin/false' \u003e /etc/modprobe.d/kspect-tipc.conf"
+              },
+              "properties": {
+                "severity": "medium",
+                "tags": [
+                  "module",
+                  "attack-surface",
+                  "network",
+                  "server",
+                  "container-host"
+                ]
+              },
+              "defaultConfiguration": {
+                "level": "warning"
+              }
+            },
+            {
+              "id": "KSPECT-SYSCTL-002",
+              "name": "KSPECT-SYSCTL-002",
+              "shortDescription": {
+                "text": "dmesg restricted to privileged users"
+              },
+              "fullDescription": {
+                "text": "The kernel log leaks pointer values, hardware details and oops traces that assist local privilege escalation."
+              },
+              "help": {
+                "text": "sysctl -w kernel.dmesg_restrict=1"
+              },
+              "properties": {
+                "severity": "medium",
+                "tags": [
+                  "sysctl",
+                  "info-leak",
+                  "kspp",
+                  "server",
+                  "container-host",
+                  "workstation"
+                ]
+              },
+              "defaultConfiguration": {
+                "level": "warning"
+              }
+            },
+            {
+              "id": "KSPECT-SYSCTL-004",
+              "name": "KSPECT-SYSCTL-004",
+              "shortDescription": {
+                "text": "BPF JIT hardening enabled for all users"
+              },
+              "fullDescription": {
+                "text": "JIT hardening (constant blinding) mitigates JIT-spray attacks against the BPF JIT compiler."
+              },
+              "help": {
+                "text": "sysctl -w net.core.bpf_jit_harden=2"
+              },
+              "properties": {
+                "severity": "medium",
+                "tags": [
+                  "sysctl",
+                  "kspp",
+                  "server",
+                  "container-host"
+                ]
+              },
+              "defaultConfiguration": {
+                "level": "warning"
+              }
+            },
+            {
+              "id": "KSPECT-SYSCTL-006",
+              "name": "KSPECT-SYSCTL-006",
+              "shortDescription": {
+                "text": "ptrace scope restricted"
+              },
+              "fullDescription": {
+                "text": "Unrestricted ptrace lets any compromised process read memory and inject into other processes of the same user (credential theft, SSH-agent hijack)."
+              },
+              "help": {
+                "text": "sysctl -w kernel.yama.ptrace_scope=1 (or higher)"
+              },
+              "properties": {
+                "severity": "medium",
+                "tags": [
+                  "sysctl",
+                  "kspp",
+                  "server",
+                  "container-host",
+                  "workstation"
+                ]
+              },
+              "defaultConfiguration": {
+                "level": "warning"
+              }
+            },
+            {
+              "id": "KSPECT-SYSCTL-007",
+              "name": "KSPECT-SYSCTL-007",
+              "shortDescription": {
+                "text": "perf_event access restricted"
+              },
+              "fullDescription": {
+                "text": "perf exposes side channels and has a history of exploitable bugs reachable by unprivileged users."
+              },
+              "help": {
+                "text": "sysctl -w kernel.perf_event_paranoid=3 (2 on kernels without the =3 patch)"
+              },
+              "properties": {
+                "severity": "medium",
+                "tags": [
+                  "sysctl",
+                  "info-leak",
+                  "kspp",
+                  "server",
+                  "container-host"
+                ]
+              },
+              "defaultConfiguration": {
+                "level": "warning"
+              }
+            },
+            {
+              "id": "KSPECT-SYSCTL-010",
+              "name": "KSPECT-SYSCTL-010",
+              "shortDescription": {
+                "text": "Unprivileged userfaultfd disabled"
+              },
+              "fullDescription": {
+                "text": "userfaultfd lets attackers pause kernel faults at will, turning hard race conditions into reliable exploits; unprivileged access is rarely needed."
+              },
+              "help": {
+                "text": "sysctl -w vm.unprivileged_userfaultfd=0"
+              },
+              "properties": {
+                "severity": "medium",
+                "tags": [
+                  "sysctl",
+                  "kspp",
+                  "server",
+                  "container-host"
+                ]
+              },
+              "defaultConfiguration": {
+                "level": "warning"
+              }
+            },
+            {
+              "id": "KSPECT-SYSCTL-011",
+              "name": "KSPECT-SYSCTL-011",
+              "shortDescription": {
+                "text": "Symlink protection enabled"
+              },
+              "fullDescription": {
+                "text": "Prevents classic /tmp symlink race attacks by restricting symlink following in sticky world-writable directories."
+              },
+              "help": {
+                "text": "sysctl -w fs.protected_symlinks=1"
+              },
+              "properties": {
+                "severity": "medium",
+                "tags": [
+                  "sysctl",
+                  "filesystem",
+                  "server",
+                  "container-host",
+                  "workstation"
+                ]
+              },
+              "defaultConfiguration": {
+                "level": "warning"
+              }
+            },
+            {
+              "id": "KSPECT-SYSCTL-012",
+              "name": "KSPECT-SYSCTL-012",
+              "shortDescription": {
+                "text": "Hardlink protection enabled"
+              },
+              "fullDescription": {
+                "text": "Prevents privilege escalation via hardlinks to files the attacker cannot write."
+              },
+              "help": {
+                "text": "sysctl -w fs.protected_hardlinks=1"
+              },
+              "properties": {
+                "severity": "medium",
+                "tags": [
+                  "sysctl",
+                  "filesystem",
+                  "server",
+                  "container-host",
+                  "workstation"
+                ]
+              },
+              "defaultConfiguration": {
+                "level": "warning"
+              }
+            },
+            {
+              "id": "KSPECT-SYSCTL-015",
+              "name": "KSPECT-SYSCTL-015",
+              "shortDescription": {
+                "text": "setuid core dumps disabled"
+              },
+              "fullDescription": {
+                "text": "Core dumps of setuid binaries can leak privileged memory (password hashes, keys) to unprivileged users."
+              },
+              "help": {
+                "text": "sysctl -w fs.suid_dumpable=0"
+              },
+              "properties": {
+                "severity": "medium",
+                "tags": [
+                  "sysctl",
+                  "info-leak",
+                  "server",
+                  "container-host",
+                  "workstation"
+                ]
+              },
+              "defaultConfiguration": {
+                "level": "warning"
+              }
+            },
+            {
+              "id": "KSPECT-SYSCTL-016",
+              "name": "KSPECT-SYSCTL-016",
+              "shortDescription": {
+                "text": "TTY line discipline autoloading disabled"
+              },
+              "fullDescription": {
+                "text": "Autoloading obscure line-discipline modules on demand has enabled multiple privilege-escalation exploits (e.g. n_hdlc CVE-2017-2636)."
+              },
+              "help": {
+                "text": "sysctl -w dev.tty.ldisc_autoload=0"
+              },
+              "properties": {
+                "severity": "medium",
+                "tags": [
+                  "sysctl",
+                  "attack-surface",
+                  "kspp",
+                  "server",
+                  "container-host"
+                ]
+              },
+              "defaultConfiguration": {
+                "level": "warning"
+              }
+            },
+            {
+              "id": "KSPECT-SYSCTL-017",
+              "name": "KSPECT-SYSCTL-017",
+              "shortDescription": {
+                "text": "Minimum mmap address enforced"
+              },
+              "fullDescription": {
+                "text": "Prevents userspace from mapping page zero, which turns kernel NULL-pointer dereference bugs into privilege escalation."
+              },
+              "help": {
+                "text": "sysctl -w vm.mmap_min_addr=65536"
+              },
+              "properties": {
+                "severity": "medium",
+                "tags": [
+                  "sysctl",
+                  "memory-safety",
+                  "server",
+                  "container-host",
+                  "workstation"
+                ]
+              },
+              "defaultConfiguration": {
+                "level": "warning"
+              }
+            },
+            {
+              "id": "KSPECT-SYSCTL-019",
+              "name": "KSPECT-SYSCTL-019",
+              "shortDescription": {
+                "text": "TCP SYN cookies enabled"
+              },
+              "fullDescription": {
+                "text": "SYN cookies keep the host reachable under SYN-flood denial-of-service attacks."
+              },
+              "help": {
+                "text": "sysctl -w net.ipv4.tcp_syncookies=1"
+              },
+              "properties": {
+                "severity": "medium",
+                "tags": [
+                  "sysctl",
+                  "network",
+                  "server",
+                  "container-host"
+                ]
+              },
+              "defaultConfiguration": {
+                "level": "warning"
+              }
+            },
+            {
+              "id": "KSPECT-SYSCTL-020",
+              "name": "KSPECT-SYSCTL-020",
+              "shortDescription": {
+                "text": "ICMP redirects not accepted"
+              },
+              "fullDescription": {
+                "text": "Accepting ICMP redirects lets on-path attackers alter the routing table for man-in-the-middle attacks."
+              },
+              "help": {
+                "text": "sysctl -w net.ipv4.conf.all.accept_redirects=0 net.ipv4.conf.default.accept_redirects=0"
+              },
+              "properties": {
+                "severity": "medium",
+                "tags": [
+                  "sysctl",
+                  "network",
+                  "server",
+                  "container-host"
+                ]
+              },
+              "defaultConfiguration": {
+                "level": "warning"
+              }
+            },
+            {
+              "id": "KSPECT-SYSCTL-021",
+              "name": "KSPECT-SYSCTL-021",
+              "shortDescription": {
+                "text": "Source-routed packets not accepted"
+              },
+              "fullDescription": {
+                "text": "Source routing allows attackers to dictate packet paths and bypass network security controls."
+              },
+              "help": {
+                "text": "sysctl -w net.ipv4.conf.all.accept_source_route=0"
+              },
+              "properties": {
+                "severity": "medium",
+                "tags": [
+                  "sysctl",
+                  "network",
+                  "server",
+                  "container-host"
+                ]
+              },
+              "defaultConfiguration": {
+                "level": "warning"
+              }
+            },
+            {
+              "id": "KSPECT-CMDLINE-005",
+              "name": "KSPECT-CMDLINE-005",
+              "shortDescription": {
+                "text": "Slab merging disabled (slab_nomerge)"
+              },
+              "fullDescription": {
+                "text": "Merged slab caches make heap-spray and cross-cache attacks easier; slab_nomerge keeps caches separate at modest memory cost."
+              },
+              "help": {
+                "text": "Add slab_nomerge to the kernel command line."
+              },
+              "properties": {
+                "severity": "low",
+                "tags": [
+                  "cmdline",
+                  "memory-safety",
+                  "kspp",
+                  "hardened",
+                  "server"
+                ]
+              },
+              "defaultConfiguration": {
+                "level": "warning"
+              }
+            },
+            {
+              "id": "KSPECT-SYSCTL-008",
+              "name": "KSPECT-SYSCTL-008",
+              "shortDescription": {
+                "text": "Magic SysRq disabled or restricted"
+              },
+              "fullDescription": {
+                "text": "SysRq allows console users to crash, reboot or dump memory of the machine. Servers rarely need it."
+              },
+              "help": {
+                "text": "sysctl -w kernel.sysrq=0"
+              },
+              "properties": {
+                "severity": "low",
+                "tags": [
+                  "sysctl",
+                  "server",
+                  "container-host"
+                ]
+              },
+              "defaultConfiguration": {
+                "level": "warning"
+              }
+            },
+            {
+              "id": "KSPECT-SYSCTL-013",
+              "name": "KSPECT-SYSCTL-013",
+              "shortDescription": {
+                "text": "FIFO protection in world-writable directories"
+              },
+              "fullDescription": {
+                "text": "Blocks data-spoofing attacks via attacker-created FIFOs in sticky directories."
+              },
+              "help": {
+                "text": "sysctl -w fs.protected_fifos=2"
+              },
+              "properties": {
+                "severity": "low",
+                "tags": [
+                  "sysctl",
+                  "filesystem",
+                  "server",
+                  "container-host",
+                  "workstation"
+                ]
+              },
+              "defaultConfiguration": {
+                "level": "warning"
+              }
+            },
+            {
+              "id": "KSPECT-SYSCTL-014",
+              "name": "KSPECT-SYSCTL-014",
+              "shortDescription": {
+                "text": "Regular-file protection in world-writable directories"
+              },
+              "fullDescription": {
+                "text": "Blocks unintended writes through attacker-created files in sticky directories."
+              },
+              "help": {
+                "text": "sysctl -w fs.protected_regular=2"
+              },
+              "properties": {
+                "severity": "low",
+                "tags": [
+                  "sysctl",
+                  "filesystem",
+                  "server",
+                  "container-host",
+                  "workstation"
+                ]
+              },
+              "defaultConfiguration": {
+                "level": "warning"
+              }
+            },
+            {
+              "id": "KSPECT-SYSCTL-022",
+              "name": "KSPECT-SYSCTL-022",
+              "shortDescription": {
+                "text": "Unprivileged user namespaces surface (informational)"
+              },
+              "fullDescription": {
+                "text": "Unprivileged user namespaces are the reachability primitive for a large share of recent kernel LPEs, but disabling them breaks rootless containers, Flatpak and browser sandboxes. Review whether your workload needs them."
+              },
+              "help": {
+                "text": "If not required: sysctl -w user.max_user_namespaces=0, or restrict via AppArmor/seccomp per workload."
+              },
+              "properties": {
+                "severity": "info",
+                "tags": [
+                  "sysctl",
+                  "attack-surface",
+                  "workstation"
+                ]
+              },
+              "defaultConfiguration": {
+                "level": "note"
+              }
+            }
+          ]
+        }
+      },
+      "results": [
+        {
+          "ruleId": "KSPECT-CMDLINE-001",
+          "level": "error",
+          "message": {
+            "text": "CPU vulnerability mitigations not globally disabled — observed: cmdline mitigations = \"off\"; expected: cmdline mitigations != off. Fix: Remove mitigations=off from the kernel command line and reboot."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "kernel/KSPECT-CMDLINE-001"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "KSPECT-CMDLINE-002",
+          "level": "error",
+          "message": {
+            "text": "KASLR not disabled at boot — observed: cmdline nokaslr present (=\"\"); expected: cmdline nokaslr absent. Fix: Remove nokaslr from the kernel command line."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "kernel/KSPECT-CMDLINE-002"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "KSPECT-CMDLINE-003",
+          "level": "error",
+          "message": {
+            "text": "SMEP/SMAP not disabled at boot — observed: cmdline nosmep present (=\"\"); cmdline nosmap absent; expected: cmdline nosmep absent AND cmdline nosmap absent. Fix: Remove nosmep and nosmap from the kernel command line."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "kernel/KSPECT-CMDLINE-003"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "KSPECT-LSM-001",
+          "level": "error",
+          "message": {
+            "text": "A major LSM is active (SELinux/AppArmor/Smack/TOMOYO) — observed: securityfs lsm = \"capability\"; expected: securityfs lsm contains \"apparmor\" OR securityfs lsm contains \"selinux\" OR securityfs lsm contains \"smack\" OR securityfs lsm contains \"tomoyo\". Fix: Enable AppArmor or SELinux for your distribution and verify with: cat /sys/kernel/security/lsm"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "kernel/KSPECT-LSM-001"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "KSPECT-MITIG-001",
+          "level": "error",
+          "message": {
+            "text": "No unmitigated CPU vulnerabilities — observed: meltdown: Vulnerable; spectre_v2: Vulnerable, IBPB: disabled, STIBP: disabled; expected: cpu vulnerabilities not containing \"Vulnerable\". Fix: Update the kernel and CPU microcode; remove any mitigation-disabling boot parameters."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "kernel/KSPECT-MITIG-001"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "KSPECT-SYSCTL-001",
+          "level": "error",
+          "message": {
+            "text": "Kernel pointer addresses hidden from unprivileged users — observed: sysctl kernel.kptr_restrict = \"0\"; expected: sysctl kernel.kptr_restrict \u003e= 1. Fix: sysctl -w kernel.kptr_restrict=2 and persist in /etc/sysctl.d/99-hardening.conf"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "kernel/KSPECT-SYSCTL-001"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "KSPECT-SYSCTL-003",
+          "level": "error",
+          "message": {
+            "text": "Unprivileged BPF disabled — observed: sysctl kernel.unprivileged_bpf_disabled = \"0\"; expected: sysctl kernel.unprivileged_bpf_disabled in {1, 2}. Fix: sysctl -w kernel.unprivileged_bpf_disabled=1"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "kernel/KSPECT-SYSCTL-003"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "KSPECT-SYSCTL-005",
+          "level": "error",
+          "message": {
+            "text": "kexec of new kernels disabled — observed: sysctl kernel.kexec_load_disabled = \"0\"; expected: sysctl kernel.kexec_load_disabled = 1. Fix: sysctl -w kernel.kexec_load_disabled=1 (one-way switch)"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "kernel/KSPECT-SYSCTL-005"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "KSPECT-SYSCTL-009",
+          "level": "error",
+          "message": {
+            "text": "Address space layout randomization fully enabled — observed: sysctl kernel.randomize_va_space = \"0\"; expected: sysctl kernel.randomize_va_space = 2. Fix: sysctl -w kernel.randomize_va_space=2"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "kernel/KSPECT-SYSCTL-009"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "KSPECT-CMDLINE-006",
+          "level": "warning",
+          "message": {
+            "text": "Memory zeroed on allocation (init_on_alloc) — observed: cmdline init_on_alloc absent; expected: cmdline init_on_alloc = 1 OR CONFIG_INIT_ON_ALLOC_DEFAULT_ON = y. Fix: Add init_on_alloc=1 to the kernel command line, or build with CONFIG_INIT_ON_ALLOC_DEFAULT_ON=y."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "kernel/KSPECT-CMDLINE-006"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "KSPECT-KCONFIG-011",
+          "level": "warning",
+          "message": {
+            "text": "Legacy vsyscall page disabled — observed: cmdline vsyscall absent; expected: CONFIG_LEGACY_VSYSCALL_NONE = y OR cmdline vsyscall = none. Fix: Use CONFIG_LEGACY_VSYSCALL_NONE=y or boot with vsyscall=none."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "kernel/KSPECT-KCONFIG-011"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "KSPECT-LSM-002",
+          "level": "warning",
+          "message": {
+            "text": "Yama LSM stacked — observed: securityfs lsm = \"capability\"; expected: securityfs lsm contains \"yama\". Fix: Boot with lsm=...,yama (default on most distributions)."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "kernel/KSPECT-LSM-002"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "KSPECT-MODULE-001",
+          "level": "warning",
+          "message": {
+            "text": "DCCP protocol module not loaded — observed: module dccp loaded; expected: module dccp absent. Fix: Blacklist it: echo 'install dccp /bin/false' \u003e /etc/modprobe.d/kspect-dccp.conf"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "kernel/KSPECT-MODULE-001"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "KSPECT-MODULE-003",
+          "level": "warning",
+          "message": {
+            "text": "TIPC protocol module not loaded — observed: module tipc loaded; expected: module tipc absent. Fix: Blacklist it: echo 'install tipc /bin/false' \u003e /etc/modprobe.d/kspect-tipc.conf"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "kernel/KSPECT-MODULE-003"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "KSPECT-SYSCTL-002",
+          "level": "warning",
+          "message": {
+            "text": "dmesg restricted to privileged users — observed: sysctl kernel.dmesg_restrict = \"0\"; expected: sysctl kernel.dmesg_restrict = 1. Fix: sysctl -w kernel.dmesg_restrict=1"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "kernel/KSPECT-SYSCTL-002"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "KSPECT-SYSCTL-004",
+          "level": "warning",
+          "message": {
+            "text": "BPF JIT hardening enabled for all users — observed: sysctl net.core.bpf_jit_harden = \"0\"; expected: sysctl net.core.bpf_jit_harden = 2. Fix: sysctl -w net.core.bpf_jit_harden=2"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "kernel/KSPECT-SYSCTL-004"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "KSPECT-SYSCTL-006",
+          "level": "warning",
+          "message": {
+            "text": "ptrace scope restricted — observed: sysctl kernel.yama.ptrace_scope = \"0\"; expected: sysctl kernel.yama.ptrace_scope \u003e= 1. Fix: sysctl -w kernel.yama.ptrace_scope=1 (or higher)"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "kernel/KSPECT-SYSCTL-006"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "KSPECT-SYSCTL-007",
+          "level": "warning",
+          "message": {
+            "text": "perf_event access restricted — observed: sysctl kernel.perf_event_paranoid = \"1\"; expected: sysctl kernel.perf_event_paranoid \u003e= 2. Fix: sysctl -w kernel.perf_event_paranoid=3 (2 on kernels without the =3 patch)"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "kernel/KSPECT-SYSCTL-007"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "KSPECT-SYSCTL-010",
+          "level": "warning",
+          "message": {
+            "text": "Unprivileged userfaultfd disabled — observed: sysctl vm.unprivileged_userfaultfd = \"1\"; expected: sysctl vm.unprivileged_userfaultfd = 0. Fix: sysctl -w vm.unprivileged_userfaultfd=0"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "kernel/KSPECT-SYSCTL-010"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "KSPECT-SYSCTL-011",
+          "level": "warning",
+          "message": {
+            "text": "Symlink protection enabled — observed: sysctl fs.protected_symlinks = \"0\"; expected: sysctl fs.protected_symlinks = 1. Fix: sysctl -w fs.protected_symlinks=1"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "kernel/KSPECT-SYSCTL-011"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "KSPECT-SYSCTL-012",
+          "level": "warning",
+          "message": {
+            "text": "Hardlink protection enabled — observed: sysctl fs.protected_hardlinks = \"0\"; expected: sysctl fs.protected_hardlinks = 1. Fix: sysctl -w fs.protected_hardlinks=1"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "kernel/KSPECT-SYSCTL-012"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "KSPECT-SYSCTL-015",
+          "level": "warning",
+          "message": {
+            "text": "setuid core dumps disabled — observed: sysctl fs.suid_dumpable = \"2\"; expected: sysctl fs.suid_dumpable = 0. Fix: sysctl -w fs.suid_dumpable=0"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "kernel/KSPECT-SYSCTL-015"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "KSPECT-SYSCTL-016",
+          "level": "warning",
+          "message": {
+            "text": "TTY line discipline autoloading disabled — observed: sysctl dev.tty.ldisc_autoload = \"1\"; expected: sysctl dev.tty.ldisc_autoload = 0. Fix: sysctl -w dev.tty.ldisc_autoload=0"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "kernel/KSPECT-SYSCTL-016"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "KSPECT-SYSCTL-017",
+          "level": "warning",
+          "message": {
+            "text": "Minimum mmap address enforced — observed: sysctl vm.mmap_min_addr = \"0\"; expected: sysctl vm.mmap_min_addr \u003e= 65536. Fix: sysctl -w vm.mmap_min_addr=65536"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "kernel/KSPECT-SYSCTL-017"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "KSPECT-SYSCTL-019",
+          "level": "warning",
+          "message": {
+            "text": "TCP SYN cookies enabled — observed: sysctl net.ipv4.tcp_syncookies = \"0\"; expected: sysctl net.ipv4.tcp_syncookies = 1. Fix: sysctl -w net.ipv4.tcp_syncookies=1"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "kernel/KSPECT-SYSCTL-019"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "KSPECT-SYSCTL-020",
+          "level": "warning",
+          "message": {
+            "text": "ICMP redirects not accepted — observed: sysctl net.ipv4.conf.all.accept_redirects = \"1\"; expected: sysctl net.ipv4.conf.all.accept_redirects = 0. Fix: sysctl -w net.ipv4.conf.all.accept_redirects=0 net.ipv4.conf.default.accept_redirects=0"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "kernel/KSPECT-SYSCTL-020"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "KSPECT-SYSCTL-021",
+          "level": "warning",
+          "message": {
+            "text": "Source-routed packets not accepted — observed: sysctl net.ipv4.conf.all.accept_source_route = \"1\"; expected: sysctl net.ipv4.conf.all.accept_source_route = 0. Fix: sysctl -w net.ipv4.conf.all.accept_source_route=0"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "kernel/KSPECT-SYSCTL-021"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "KSPECT-CMDLINE-005",
+          "level": "warning",
+          "message": {
+            "text": "Slab merging disabled (slab_nomerge) — observed: cmdline slab_nomerge absent; expected: cmdline slab_nomerge present. Fix: Add slab_nomerge to the kernel command line."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "kernel/KSPECT-CMDLINE-005"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "KSPECT-SYSCTL-008",
+          "level": "warning",
+          "message": {
+            "text": "Magic SysRq disabled or restricted — observed: sysctl kernel.sysrq = \"1\"; expected: sysctl kernel.sysrq = 0. Fix: sysctl -w kernel.sysrq=0"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "kernel/KSPECT-SYSCTL-008"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "KSPECT-SYSCTL-013",
+          "level": "warning",
+          "message": {
+            "text": "FIFO protection in world-writable directories — observed: sysctl fs.protected_fifos = \"0\"; expected: sysctl fs.protected_fifos \u003e= 1. Fix: sysctl -w fs.protected_fifos=2"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "kernel/KSPECT-SYSCTL-013"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "KSPECT-SYSCTL-014",
+          "level": "warning",
+          "message": {
+            "text": "Regular-file protection in world-writable directories — observed: sysctl fs.protected_regular = \"0\"; expected: sysctl fs.protected_regular \u003e= 1. Fix: sysctl -w fs.protected_regular=2"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "kernel/KSPECT-SYSCTL-014"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "KSPECT-SYSCTL-022",
+          "level": "note",
+          "message": {
+            "text": "Unprivileged user namespaces surface (informational) — observed: sysctl user.max_user_namespaces = \"15000\"; expected: sysctl user.max_user_namespaces = 0. Fix: If not required: sysctl -w user.max_user_namespaces=0, or restrict via AppArmor/seccomp per workload."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "kernel/KSPECT-SYSCTL-022"
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

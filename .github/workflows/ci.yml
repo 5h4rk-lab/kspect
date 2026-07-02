@@ -1,0 +1,66 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Lint, test, build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+          cache: true
+
+      - name: gofmt
+        run: gofmt -l . | (! grep .)
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: Unit and integration tests (race detector)
+        run: go test -race -coverprofile=cover.out ./...
+
+      - name: Coverage summary
+        run: go tool cover -func=cover.out | tail -1
+
+      - name: Build (static)
+        run: CGO_ENABLED=0 go build -trimpath -o bin/kspect ./cmd/kspect
+
+      - name: Cross-compile arm64
+        run: CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -o /dev/null ./cmd/kspect
+
+      # Real-kernel smoke test: scan the CI runner itself. We don't gate
+      # on findings (runners are not hardened hosts); we gate on the tool
+      # completing and emitting parseable JSON and SARIF.
+      - name: Self-scan on runner kernel
+        run: |
+          ./bin/kspect scan --format json > scan.json || test $? -eq 1
+          python3 -c "import json; d=json.load(open('scan.json')); assert d['summary']['total'] > 40"
+          ./bin/kspect scan --format sarif > scan.sarif || test $? -eq 1
+          python3 -c "import json; d=json.load(open('scan.sarif')); assert d['version']=='2.1.0'"
+
+      - name: Baseline/drift smoke test
+        run: |
+          ./bin/kspect baseline base.json
+          ./bin/kspect diff base.json
+
+  docker:
+    name: Docker image builds
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image
+        run: docker build -t kspect:ci .
+      - name: Scan host from container
+        run: |
+          docker run --rm -v /:/host:ro kspect:ci scan --root /host --format json > out.json || test $? -eq 1
+          python3 -c "import json; json.load(open('out.json'))"

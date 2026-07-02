@@ -1,0 +1,148 @@
+# kspect
+
+**Linux kernel security posture auditing and drift detection — one static binary, zero dependencies.**
+
+**Website:** https://5h4rk-lab.github.io/kspect/
+
+kspect audits the *running* kernel's security posture (sysctls, boot parameters, kernel config, loaded modules, CPU vulnerability mitigations, active LSMs, lockdown state), explains every finding with a rationale and a concrete fix, and detects configuration drift against saved baselines. It is built for CI gates, fleet auditing, and incident-response triage — not just one-off checks.
+
+```
+$ kspect scan
+FAIL HIGH    KSPECT-SYSCTL-003    Unprivileged BPF disabled
+     observed: sysctl kernel.unprivileged_bpf_disabled = "0"
+     expected: sysctl kernel.unprivileged_bpf_disabled in {1, 2}
+     fix:      sysctl -w kernel.unprivileged_bpf_disabled=1
+FAIL HIGH    KSPECT-MITIG-001     No unmitigated CPU vulnerabilities
+     observed: spectre_v2: Vulnerable, IBPB: disabled, STIBP: disabled
+     expected: cpu vulnerabilities not containing "Vulnerable"
+     fix:      Update the kernel and CPU microcode; remove any mitigation-disabling boot parameters.
+...
+Summary: 48 checks — 18 fail, 19 pass, 11 unknown (3 high, 10 medium, 4 low, 1 info)
+```
+
+## Why kspect
+
+Kernel hardening guidance exists (KSPP, CIS, vendor docs), but *operationalizing* it is still painful:
+
+- **Point-in-time audit tools tell you about the build, not the box.** Checking a kernel's compile-time config misses what actually matters at runtime: a sysctl silently reset by a package upgrade, `mitigations=off` left over from a benchmark, a `dccp` module loaded by an attacker or a curious teammate.
+- **General-purpose audit scripts are noisy.** Hundreds of checks, half not applicable, findings without exploit context, and no clean machine output — so nobody wires them into pipelines.
+- **Nothing watches for drift.** Hardening decays. The gap between "we hardened this host last quarter" and "it is still hardened today" is where incidents live.
+
+kspect's answers:
+
+| Capability | What it means in practice |
+|---|---|
+| **Runtime + build-time in one scan** | sysctls, `/proc/cmdline`, kconfig, modules, `/sys/.../vulnerabilities`, LSMs, lockdown |
+| **Three-state results** | `pass` / `fail` / `unknown` — missing data is *never* reported as a failure. This is the core false-positive control |
+| **Every finding is actionable** | rationale (what an attacker gains) + exact remediation command + references |
+| **Baseline & drift** | `kspect baseline` snapshots posture; `kspect diff` fails (exit 2) on any deviation |
+| **CI-native** | stable exit codes, `--fail-on` severity gate, JSON, and **SARIF** for GitHub code scanning |
+| **Policy as code** | layer your own JSON rules over the builtins; override or disable any rule by ID |
+| **Zero dependencies** | pure Go stdlib, static binary, `FROM scratch` container. Minimal supply chain for a tool you run on every host |
+
+## Install
+
+**Binary release**
+
+```sh
+curl -LO https://github.com/5h4rk-lab/kspect/releases/latest/download/kspect_linux_amd64
+chmod +x kspect_linux_amd64 && sudo mv kspect_linux_amd64 /usr/local/bin/kspect
+```
+
+**From source** (Go 1.22+)
+
+```sh
+go install github.com/5h4rk-lab/kspect/cmd/kspect@latest
+```
+
+**Container** (audits the host through a read-only bind mount)
+
+```sh
+docker run --rm -v /:/host:ro ghcr.io/5h4rk-lab/kspect scan --root /host
+```
+
+kspect only reads files. Run it as root for complete coverage (some sysctls and securityfs are root-only); unprivileged runs still work — inaccessible sources simply report `unknown`.
+
+## Usage
+
+```sh
+kspect scan                              # audit, human-readable
+kspect scan --format json                # machine-readable, SIEM-friendly
+kspect scan --format sarif > k.sarif     # upload to GitHub code scanning
+kspect scan --tags container-host        # profile subset (server|container-host|workstation|network|kspp|hardened)
+kspect scan --fail-on high               # CI gate: exit 1 only on high-severity failures
+kspect scan --rules my-org.json          # layer org policy over builtins
+
+kspect baseline golden.json              # snapshot current posture
+kspect diff golden.json                  # exit 2 + report if anything drifted
+kspect rules                             # list the effective ruleset
+```
+
+**Exit codes** (stable contract): `0` clean · `1` gated scan failures · `2` drift · `3` error.
+
+### CI gate example
+
+```yaml
+- name: Kernel posture gate
+  run: |
+    kspect scan --tags container-host --fail-on high --format sarif > kspect.sarif
+- uses: github/codeql-action/upload-sarif@v3
+  if: always()
+  with:
+    sarif_file: kspect.sarif
+```
+
+### Drift monitoring example
+
+```sh
+kspect baseline /var/lib/kspect/golden.json          # once, after hardening
+kspect diff /var/lib/kspect/golden.json || alert     # from cron/systemd timer
+```
+
+See [`examples/`](examples/) for a systemd timer unit, a custom ruleset, and sample outputs.
+
+## Custom rules
+
+Rules are plain JSON — reviewable in a PR, generated by scripts, diffed like code:
+
+```json
+{
+  "version": 1,
+  "rules": [
+    {
+      "id": "ORG-001",
+      "title": "Org policy: core dumps fully disabled",
+      "severity": "medium",
+      "tags": ["org"],
+      "rationale": "Core files have leaked credentials in prior incidents.",
+      "remediation": "sysctl -w kernel.core_pattern=|/bin/false",
+      "checks": [
+        { "source": "sysctl", "key": "kernel.core_pattern", "op": "contains", "value": "/bin/false" }
+      ]
+    },
+    { "id": "KSPECT-SYSCTL-008", "title": "n/a", "severity": "low", "disabled": true,
+      "rationale": "SysRq required by our on-call runbooks.",
+      "checks": [{ "source": "sysctl", "key": "kernel.sysrq", "op": "present" }] }
+  ]
+}
+```
+
+Sources: `sysctl`, `kconfig`, `cmdline`, `module`, `mitigation`, `securityfs`. Operators: `equals`, `not_equals`, `one_of`, `contains`, `not_contains`, `present`, `absent`, `min`, `max`. Combine checks with `"match": "any"` (default, models equivalent controls) or `"all"`.
+
+## What kspect is not
+
+- **Not a runtime detection system.** It audits configuration, not behavior. Pair it with Falco/Tetragon/auditd for runtime telemetry.
+- **Not a remediation tool.** It prints exact fixes but never modifies the system — auditors should be read-only.
+- **Not a compliance checkbox generator.** Rules exist because they change what an attacker can do, and each says how.
+
+## Documentation
+
+- [Architecture](docs/ARCHITECTURE.md) — data flow, package layout, the `--root` design
+- [Threat model](docs/THREAT_MODEL.md) — what kspect defends against, and its own attack surface
+- [Design decisions](docs/DESIGN_DECISIONS.md) — living engineering log: choices, rejected alternatives, lessons
+- [Roadmap](docs/ROADMAP.md)
+- [Contributing](CONTRIBUTING.md) · [Security policy](SECURITY.md)
+
+## License
+
+Apache-2.0 — permissive with an explicit patent grant, the standard choice for security tooling intended for broad corporate adoption.

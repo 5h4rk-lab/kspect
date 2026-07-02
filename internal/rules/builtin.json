@@ -1,0 +1,1235 @@
+{
+  "version": 1,
+  "rules": [
+    {
+      "id": "KSPECT-SYSCTL-001",
+      "title": "Kernel pointer addresses hidden from unprivileged users",
+      "severity": "high",
+      "tags": [
+        "sysctl",
+        "info-leak",
+        "kspp",
+        "server",
+        "container-host",
+        "workstation"
+      ],
+      "rationale": "kernel.kptr_restrict=0 exposes raw kernel pointers via /proc and dmesg, defeating KASLR and giving exploit developers the addresses they need.",
+      "remediation": "sysctl -w kernel.kptr_restrict=2 and persist in /etc/sysctl.d/99-hardening.conf",
+      "refs": [
+        "https://docs.kernel.org/admin-guide/sysctl/kernel.html#kptr-restrict"
+      ],
+      "checks": [
+        {
+          "source": "sysctl",
+          "key": "kernel.kptr_restrict",
+          "op": "min",
+          "value": "1"
+        }
+      ]
+    },
+    {
+      "id": "KSPECT-SYSCTL-002",
+      "title": "dmesg restricted to privileged users",
+      "severity": "medium",
+      "tags": [
+        "sysctl",
+        "info-leak",
+        "kspp",
+        "server",
+        "container-host",
+        "workstation"
+      ],
+      "rationale": "The kernel log leaks pointer values, hardware details and oops traces that assist local privilege escalation.",
+      "remediation": "sysctl -w kernel.dmesg_restrict=1",
+      "refs": [
+        "https://docs.kernel.org/admin-guide/sysctl/kernel.html#dmesg-restrict"
+      ],
+      "checks": [
+        {
+          "source": "sysctl",
+          "key": "kernel.dmesg_restrict",
+          "op": "equals",
+          "value": "1"
+        }
+      ]
+    },
+    {
+      "id": "KSPECT-SYSCTL-003",
+      "title": "Unprivileged BPF disabled",
+      "severity": "high",
+      "tags": [
+        "sysctl",
+        "attack-surface",
+        "kspp",
+        "server",
+        "container-host",
+        "workstation"
+      ],
+      "rationale": "Unprivileged eBPF has been the entry point for multiple verifier privilege-escalation exploits (e.g. CVE-2020-8835, CVE-2021-3490). Value 1 disables it until reboot; 2 allows re-enabling.",
+      "remediation": "sysctl -w kernel.unprivileged_bpf_disabled=1",
+      "refs": [
+        "https://docs.kernel.org/admin-guide/sysctl/kernel.html#unprivileged-bpf-disabled"
+      ],
+      "checks": [
+        {
+          "source": "sysctl",
+          "key": "kernel.unprivileged_bpf_disabled",
+          "op": "one_of",
+          "values": [
+            "1",
+            "2"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "KSPECT-SYSCTL-004",
+      "title": "BPF JIT hardening enabled for all users",
+      "severity": "medium",
+      "tags": [
+        "sysctl",
+        "kspp",
+        "server",
+        "container-host"
+      ],
+      "rationale": "JIT hardening (constant blinding) mitigates JIT-spray attacks against the BPF JIT compiler.",
+      "remediation": "sysctl -w net.core.bpf_jit_harden=2",
+      "refs": [
+        "https://docs.kernel.org/admin-guide/sysctl/net.html"
+      ],
+      "checks": [
+        {
+          "source": "sysctl",
+          "key": "net.core.bpf_jit_harden",
+          "op": "equals",
+          "value": "2"
+        }
+      ]
+    },
+    {
+      "id": "KSPECT-SYSCTL-005",
+      "title": "kexec of new kernels disabled",
+      "severity": "high",
+      "tags": [
+        "sysctl",
+        "kspp",
+        "server",
+        "container-host"
+      ],
+      "rationale": "kexec allows replacing the running kernel, bypassing Secure Boot and lockdown; disabling it closes a persistence and integrity-bypass path.",
+      "remediation": "sysctl -w kernel.kexec_load_disabled=1 (one-way switch)",
+      "refs": [
+        "https://docs.kernel.org/admin-guide/sysctl/kernel.html#kexec-load-disabled"
+      ],
+      "checks": [
+        {
+          "source": "sysctl",
+          "key": "kernel.kexec_load_disabled",
+          "op": "equals",
+          "value": "1"
+        }
+      ]
+    },
+    {
+      "id": "KSPECT-SYSCTL-006",
+      "title": "ptrace scope restricted",
+      "severity": "medium",
+      "tags": [
+        "sysctl",
+        "kspp",
+        "server",
+        "container-host",
+        "workstation"
+      ],
+      "rationale": "Unrestricted ptrace lets any compromised process read memory and inject into other processes of the same user (credential theft, SSH-agent hijack).",
+      "remediation": "sysctl -w kernel.yama.ptrace_scope=1 (or higher)",
+      "refs": [
+        "https://docs.kernel.org/admin-guide/LSM/Yama.html"
+      ],
+      "checks": [
+        {
+          "source": "sysctl",
+          "key": "kernel.yama.ptrace_scope",
+          "op": "min",
+          "value": "1"
+        }
+      ]
+    },
+    {
+      "id": "KSPECT-SYSCTL-007",
+      "title": "perf_event access restricted",
+      "severity": "medium",
+      "tags": [
+        "sysctl",
+        "info-leak",
+        "kspp",
+        "server",
+        "container-host"
+      ],
+      "rationale": "perf exposes side channels and has a history of exploitable bugs reachable by unprivileged users.",
+      "remediation": "sysctl -w kernel.perf_event_paranoid=3 (2 on kernels without the =3 patch)",
+      "refs": [
+        "https://docs.kernel.org/admin-guide/sysctl/kernel.html#perf-event-paranoid"
+      ],
+      "checks": [
+        {
+          "source": "sysctl",
+          "key": "kernel.perf_event_paranoid",
+          "op": "min",
+          "value": "2"
+        }
+      ]
+    },
+    {
+      "id": "KSPECT-SYSCTL-008",
+      "title": "Magic SysRq disabled or restricted",
+      "severity": "low",
+      "tags": [
+        "sysctl",
+        "server",
+        "container-host"
+      ],
+      "rationale": "SysRq allows console users to crash, reboot or dump memory of the machine. Servers rarely need it.",
+      "remediation": "sysctl -w kernel.sysrq=0",
+      "refs": [
+        "https://docs.kernel.org/admin-guide/sysrq.html"
+      ],
+      "checks": [
+        {
+          "source": "sysctl",
+          "key": "kernel.sysrq",
+          "op": "equals",
+          "value": "0"
+        }
+      ]
+    },
+    {
+      "id": "KSPECT-SYSCTL-009",
+      "title": "Address space layout randomization fully enabled",
+      "severity": "high",
+      "tags": [
+        "sysctl",
+        "memory-safety",
+        "server",
+        "container-host",
+        "workstation"
+      ],
+      "rationale": "randomize_va_space=2 randomizes stack, mmap, VDSO and heap; anything lower makes userspace exploitation dramatically easier.",
+      "remediation": "sysctl -w kernel.randomize_va_space=2",
+      "refs": [
+        "https://docs.kernel.org/admin-guide/sysctl/kernel.html#randomize-va-space"
+      ],
+      "checks": [
+        {
+          "source": "sysctl",
+          "key": "kernel.randomize_va_space",
+          "op": "equals",
+          "value": "2"
+        }
+      ]
+    },
+    {
+      "id": "KSPECT-SYSCTL-010",
+      "title": "Unprivileged userfaultfd disabled",
+      "severity": "medium",
+      "tags": [
+        "sysctl",
+        "kspp",
+        "server",
+        "container-host"
+      ],
+      "rationale": "userfaultfd lets attackers pause kernel faults at will, turning hard race conditions into reliable exploits; unprivileged access is rarely needed.",
+      "remediation": "sysctl -w vm.unprivileged_userfaultfd=0",
+      "refs": [
+        "https://docs.kernel.org/admin-guide/sysctl/vm.html#unprivileged-userfaultfd"
+      ],
+      "checks": [
+        {
+          "source": "sysctl",
+          "key": "vm.unprivileged_userfaultfd",
+          "op": "equals",
+          "value": "0"
+        }
+      ]
+    },
+    {
+      "id": "KSPECT-SYSCTL-011",
+      "title": "Symlink protection enabled",
+      "severity": "medium",
+      "tags": [
+        "sysctl",
+        "filesystem",
+        "server",
+        "container-host",
+        "workstation"
+      ],
+      "rationale": "Prevents classic /tmp symlink race attacks by restricting symlink following in sticky world-writable directories.",
+      "remediation": "sysctl -w fs.protected_symlinks=1",
+      "refs": [
+        "https://docs.kernel.org/admin-guide/sysctl/fs.html"
+      ],
+      "checks": [
+        {
+          "source": "sysctl",
+          "key": "fs.protected_symlinks",
+          "op": "equals",
+          "value": "1"
+        }
+      ]
+    },
+    {
+      "id": "KSPECT-SYSCTL-012",
+      "title": "Hardlink protection enabled",
+      "severity": "medium",
+      "tags": [
+        "sysctl",
+        "filesystem",
+        "server",
+        "container-host",
+        "workstation"
+      ],
+      "rationale": "Prevents privilege escalation via hardlinks to files the attacker cannot write.",
+      "remediation": "sysctl -w fs.protected_hardlinks=1",
+      "refs": [
+        "https://docs.kernel.org/admin-guide/sysctl/fs.html"
+      ],
+      "checks": [
+        {
+          "source": "sysctl",
+          "key": "fs.protected_hardlinks",
+          "op": "equals",
+          "value": "1"
+        }
+      ]
+    },
+    {
+      "id": "KSPECT-SYSCTL-013",
+      "title": "FIFO protection in world-writable directories",
+      "severity": "low",
+      "tags": [
+        "sysctl",
+        "filesystem",
+        "server",
+        "container-host",
+        "workstation"
+      ],
+      "rationale": "Blocks data-spoofing attacks via attacker-created FIFOs in sticky directories.",
+      "remediation": "sysctl -w fs.protected_fifos=2",
+      "refs": [
+        "https://docs.kernel.org/admin-guide/sysctl/fs.html"
+      ],
+      "checks": [
+        {
+          "source": "sysctl",
+          "key": "fs.protected_fifos",
+          "op": "min",
+          "value": "1"
+        }
+      ]
+    },
+    {
+      "id": "KSPECT-SYSCTL-014",
+      "title": "Regular-file protection in world-writable directories",
+      "severity": "low",
+      "tags": [
+        "sysctl",
+        "filesystem",
+        "server",
+        "container-host",
+        "workstation"
+      ],
+      "rationale": "Blocks unintended writes through attacker-created files in sticky directories.",
+      "remediation": "sysctl -w fs.protected_regular=2",
+      "refs": [
+        "https://docs.kernel.org/admin-guide/sysctl/fs.html"
+      ],
+      "checks": [
+        {
+          "source": "sysctl",
+          "key": "fs.protected_regular",
+          "op": "min",
+          "value": "1"
+        }
+      ]
+    },
+    {
+      "id": "KSPECT-SYSCTL-015",
+      "title": "setuid core dumps disabled",
+      "severity": "medium",
+      "tags": [
+        "sysctl",
+        "info-leak",
+        "server",
+        "container-host",
+        "workstation"
+      ],
+      "rationale": "Core dumps of setuid binaries can leak privileged memory (password hashes, keys) to unprivileged users.",
+      "remediation": "sysctl -w fs.suid_dumpable=0",
+      "refs": [
+        "https://docs.kernel.org/admin-guide/sysctl/fs.html#suid-dumpable"
+      ],
+      "checks": [
+        {
+          "source": "sysctl",
+          "key": "fs.suid_dumpable",
+          "op": "equals",
+          "value": "0"
+        }
+      ]
+    },
+    {
+      "id": "KSPECT-SYSCTL-016",
+      "title": "TTY line discipline autoloading disabled",
+      "severity": "medium",
+      "tags": [
+        "sysctl",
+        "attack-surface",
+        "kspp",
+        "server",
+        "container-host"
+      ],
+      "rationale": "Autoloading obscure line-discipline modules on demand has enabled multiple privilege-escalation exploits (e.g. n_hdlc CVE-2017-2636).",
+      "remediation": "sysctl -w dev.tty.ldisc_autoload=0",
+      "refs": [
+        "https://docs.kernel.org/admin-guide/sysctl/kernel.html"
+      ],
+      "checks": [
+        {
+          "source": "sysctl",
+          "key": "dev.tty.ldisc_autoload",
+          "op": "equals",
+          "value": "0"
+        }
+      ]
+    },
+    {
+      "id": "KSPECT-SYSCTL-017",
+      "title": "Minimum mmap address enforced",
+      "severity": "medium",
+      "tags": [
+        "sysctl",
+        "memory-safety",
+        "server",
+        "container-host",
+        "workstation"
+      ],
+      "rationale": "Prevents userspace from mapping page zero, which turns kernel NULL-pointer dereference bugs into privilege escalation.",
+      "remediation": "sysctl -w vm.mmap_min_addr=65536",
+      "refs": [
+        "https://docs.kernel.org/admin-guide/sysctl/vm.html#mmap-min-addr"
+      ],
+      "checks": [
+        {
+          "source": "sysctl",
+          "key": "vm.mmap_min_addr",
+          "op": "min",
+          "value": "65536"
+        }
+      ]
+    },
+    {
+      "id": "KSPECT-SYSCTL-018",
+      "title": "io_uring restricted (kernel >= 6.6)",
+      "severity": "medium",
+      "tags": [
+        "sysctl",
+        "attack-surface",
+        "server",
+        "container-host"
+      ],
+      "rationale": "io_uring has produced a steady stream of exploitable kernel bugs; Google disabled it fleet-wide in production. On kernels that support it, restrict creation to privileged users.",
+      "remediation": "sysctl -w kernel.io_uring_disabled=2 (or 1 to limit to CAP_SYS_ADMIN)",
+      "refs": [
+        "https://docs.kernel.org/admin-guide/sysctl/kernel.html#io-uring-disabled"
+      ],
+      "checks": [
+        {
+          "source": "sysctl",
+          "key": "kernel.io_uring_disabled",
+          "op": "min",
+          "value": "1"
+        }
+      ]
+    },
+    {
+      "id": "KSPECT-SYSCTL-019",
+      "title": "TCP SYN cookies enabled",
+      "severity": "medium",
+      "tags": [
+        "sysctl",
+        "network",
+        "server",
+        "container-host"
+      ],
+      "rationale": "SYN cookies keep the host reachable under SYN-flood denial-of-service attacks.",
+      "remediation": "sysctl -w net.ipv4.tcp_syncookies=1",
+      "refs": [
+        "https://docs.kernel.org/networking/ip-sysctl.html"
+      ],
+      "checks": [
+        {
+          "source": "sysctl",
+          "key": "net.ipv4.tcp_syncookies",
+          "op": "equals",
+          "value": "1"
+        }
+      ]
+    },
+    {
+      "id": "KSPECT-SYSCTL-020",
+      "title": "ICMP redirects not accepted",
+      "severity": "medium",
+      "tags": [
+        "sysctl",
+        "network",
+        "server",
+        "container-host"
+      ],
+      "rationale": "Accepting ICMP redirects lets on-path attackers alter the routing table for man-in-the-middle attacks.",
+      "remediation": "sysctl -w net.ipv4.conf.all.accept_redirects=0 net.ipv4.conf.default.accept_redirects=0",
+      "refs": [
+        "https://docs.kernel.org/networking/ip-sysctl.html"
+      ],
+      "checks": [
+        {
+          "source": "sysctl",
+          "key": "net.ipv4.conf.all.accept_redirects",
+          "op": "equals",
+          "value": "0"
+        }
+      ]
+    },
+    {
+      "id": "KSPECT-SYSCTL-021",
+      "title": "Source-routed packets not accepted",
+      "severity": "medium",
+      "tags": [
+        "sysctl",
+        "network",
+        "server",
+        "container-host"
+      ],
+      "rationale": "Source routing allows attackers to dictate packet paths and bypass network security controls.",
+      "remediation": "sysctl -w net.ipv4.conf.all.accept_source_route=0",
+      "refs": [
+        "https://docs.kernel.org/networking/ip-sysctl.html"
+      ],
+      "checks": [
+        {
+          "source": "sysctl",
+          "key": "net.ipv4.conf.all.accept_source_route",
+          "op": "equals",
+          "value": "0"
+        }
+      ]
+    },
+    {
+      "id": "KSPECT-SYSCTL-022",
+      "title": "Unprivileged user namespaces surface (informational)",
+      "severity": "info",
+      "tags": [
+        "sysctl",
+        "attack-surface",
+        "workstation"
+      ],
+      "rationale": "Unprivileged user namespaces are the reachability primitive for a large share of recent kernel LPEs, but disabling them breaks rootless containers, Flatpak and browser sandboxes. Review whether your workload needs them.",
+      "remediation": "If not required: sysctl -w user.max_user_namespaces=0, or restrict via AppArmor/seccomp per workload.",
+      "refs": [
+        "https://docs.kernel.org/admin-guide/sysctl/user.html"
+      ],
+      "checks": [
+        {
+          "source": "sysctl",
+          "key": "user.max_user_namespaces",
+          "op": "equals",
+          "value": "0"
+        }
+      ]
+    },
+    {
+      "id": "KSPECT-SYSCTL-023",
+      "title": "Module loading permanently disabled (strict environments)",
+      "severity": "info",
+      "tags": [
+        "sysctl",
+        "attack-surface",
+        "hardened"
+      ],
+      "rationale": "kernel.modules_disabled=1 is a one-way switch that blocks all further module loading \u2014 the strongest anti-rootkit control, suitable for appliances and locked-down hosts after boot completes.",
+      "remediation": "After all required modules are loaded: sysctl -w kernel.modules_disabled=1",
+      "refs": [
+        "https://docs.kernel.org/admin-guide/sysctl/kernel.html#modules-disabled"
+      ],
+      "checks": [
+        {
+          "source": "sysctl",
+          "key": "kernel.modules_disabled",
+          "op": "equals",
+          "value": "1"
+        }
+      ]
+    },
+    {
+      "id": "KSPECT-CMDLINE-001",
+      "title": "CPU vulnerability mitigations not globally disabled",
+      "severity": "high",
+      "tags": [
+        "cmdline",
+        "cpu",
+        "server",
+        "container-host",
+        "workstation"
+      ],
+      "rationale": "mitigations=off disables every hardware vulnerability mitigation (Spectre, Meltdown, MDS, ...), re-exposing the host to well-understood cross-boundary attacks.",
+      "remediation": "Remove mitigations=off from the kernel command line and reboot.",
+      "refs": [
+        "https://docs.kernel.org/admin-guide/kernel-parameters.html"
+      ],
+      "checks": [
+        {
+          "source": "cmdline",
+          "key": "mitigations",
+          "op": "not_equals",
+          "value": "off"
+        }
+      ]
+    },
+    {
+      "id": "KSPECT-CMDLINE-002",
+      "title": "KASLR not disabled at boot",
+      "severity": "high",
+      "tags": [
+        "cmdline",
+        "memory-safety",
+        "server",
+        "container-host",
+        "workstation"
+      ],
+      "rationale": "nokaslr places the kernel at a fixed address, removing the primary probabilistic defense against kernel exploits.",
+      "remediation": "Remove nokaslr from the kernel command line.",
+      "refs": [
+        "https://docs.kernel.org/admin-guide/kernel-parameters.html"
+      ],
+      "checks": [
+        {
+          "source": "cmdline",
+          "key": "nokaslr",
+          "op": "absent"
+        }
+      ]
+    },
+    {
+      "id": "KSPECT-CMDLINE-003",
+      "title": "SMEP/SMAP not disabled at boot",
+      "severity": "high",
+      "tags": [
+        "cmdline",
+        "cpu",
+        "server",
+        "container-host",
+        "workstation"
+      ],
+      "rationale": "nosmep/nosmap let the kernel execute or access attacker-controlled userspace memory \u2014 a decisive advantage for kernel exploits.",
+      "remediation": "Remove nosmep and nosmap from the kernel command line.",
+      "refs": [
+        "https://docs.kernel.org/admin-guide/kernel-parameters.html"
+      ],
+      "checks": [
+        {
+          "source": "cmdline",
+          "key": "nosmep",
+          "op": "absent"
+        },
+        {
+          "source": "cmdline",
+          "key": "nosmap",
+          "op": "absent"
+        }
+      ],
+      "match": "all"
+    },
+    {
+      "id": "KSPECT-CMDLINE-004",
+      "title": "Page-table isolation not disabled",
+      "severity": "high",
+      "tags": [
+        "cmdline",
+        "cpu",
+        "server",
+        "container-host",
+        "workstation"
+      ],
+      "rationale": "nopti / pti=off disables Meltdown protection on affected CPUs.",
+      "remediation": "Remove nopti / pti=off from the kernel command line.",
+      "refs": [
+        "https://docs.kernel.org/admin-guide/kernel-parameters.html"
+      ],
+      "checks": [
+        {
+          "source": "cmdline",
+          "key": "nopti",
+          "op": "absent"
+        }
+      ]
+    },
+    {
+      "id": "KSPECT-CMDLINE-005",
+      "title": "Slab merging disabled (slab_nomerge)",
+      "severity": "low",
+      "tags": [
+        "cmdline",
+        "memory-safety",
+        "kspp",
+        "hardened",
+        "server"
+      ],
+      "rationale": "Merged slab caches make heap-spray and cross-cache attacks easier; slab_nomerge keeps caches separate at modest memory cost.",
+      "remediation": "Add slab_nomerge to the kernel command line.",
+      "refs": [
+        "https://docs.kernel.org/admin-guide/kernel-parameters.html"
+      ],
+      "checks": [
+        {
+          "source": "cmdline",
+          "key": "slab_nomerge",
+          "op": "present"
+        }
+      ]
+    },
+    {
+      "id": "KSPECT-CMDLINE-006",
+      "title": "Memory zeroed on allocation (init_on_alloc)",
+      "severity": "medium",
+      "tags": [
+        "cmdline",
+        "memory-safety",
+        "kspp",
+        "server",
+        "container-host",
+        "workstation"
+      ],
+      "rationale": "Zeroing heap allocations eliminates whole classes of uninitialized-memory info leaks and makes many use-after-free bugs unexploitable.",
+      "remediation": "Add init_on_alloc=1 to the kernel command line, or build with CONFIG_INIT_ON_ALLOC_DEFAULT_ON=y.",
+      "refs": [
+        "https://docs.kernel.org/admin-guide/kernel-parameters.html"
+      ],
+      "checks": [
+        {
+          "source": "cmdline",
+          "key": "init_on_alloc",
+          "op": "equals",
+          "value": "1"
+        },
+        {
+          "source": "kconfig",
+          "key": "CONFIG_INIT_ON_ALLOC_DEFAULT_ON",
+          "op": "equals",
+          "value": "y"
+        }
+      ]
+    },
+    {
+      "id": "KSPECT-KCONFIG-001",
+      "title": "Kernel built with KASLR",
+      "severity": "high",
+      "tags": [
+        "kconfig",
+        "memory-safety",
+        "kspp",
+        "server",
+        "container-host",
+        "workstation"
+      ],
+      "rationale": "CONFIG_RANDOMIZE_BASE randomizes the kernel load address at boot; without it every kernel address is static and predictable.",
+      "remediation": "Use a kernel built with CONFIG_RANDOMIZE_BASE=y (all mainstream distro kernels).",
+      "refs": [
+        "https://kspp.github.io/Recommended_Settings"
+      ],
+      "checks": [
+        {
+          "source": "kconfig",
+          "key": "CONFIG_RANDOMIZE_BASE",
+          "op": "equals",
+          "value": "y"
+        }
+      ]
+    },
+    {
+      "id": "KSPECT-KCONFIG-002",
+      "title": "Strong stack protector enabled",
+      "severity": "high",
+      "tags": [
+        "kconfig",
+        "memory-safety",
+        "kspp",
+        "server",
+        "container-host",
+        "workstation"
+      ],
+      "rationale": "Stack canaries detect and stop kernel stack buffer overflows before control-flow hijack.",
+      "remediation": "Use a kernel built with CONFIG_STACKPROTECTOR_STRONG=y.",
+      "refs": [
+        "https://kspp.github.io/Recommended_Settings"
+      ],
+      "checks": [
+        {
+          "source": "kconfig",
+          "key": "CONFIG_STACKPROTECTOR_STRONG",
+          "op": "equals",
+          "value": "y"
+        }
+      ]
+    },
+    {
+      "id": "KSPECT-KCONFIG-003",
+      "title": "Strict kernel memory permissions",
+      "severity": "high",
+      "tags": [
+        "kconfig",
+        "memory-safety",
+        "kspp",
+        "server",
+        "container-host",
+        "workstation"
+      ],
+      "rationale": "CONFIG_STRICT_KERNEL_RWX makes kernel text read-only and data non-executable, blocking trivial runtime code patching.",
+      "remediation": "Use a kernel built with CONFIG_STRICT_KERNEL_RWX=y.",
+      "refs": [
+        "https://kspp.github.io/Recommended_Settings"
+      ],
+      "checks": [
+        {
+          "source": "kconfig",
+          "key": "CONFIG_STRICT_KERNEL_RWX",
+          "op": "equals",
+          "value": "y"
+        }
+      ]
+    },
+    {
+      "id": "KSPECT-KCONFIG-004",
+      "title": "Hardened usercopy enabled",
+      "severity": "high",
+      "tags": [
+        "kconfig",
+        "memory-safety",
+        "kspp",
+        "server",
+        "container-host",
+        "workstation"
+      ],
+      "rationale": "Bounds-checks copies between kernel and userspace, stopping a common heap-overflow exploitation primitive.",
+      "remediation": "Use a kernel built with CONFIG_HARDENED_USERCOPY=y.",
+      "refs": [
+        "https://kspp.github.io/Recommended_Settings"
+      ],
+      "checks": [
+        {
+          "source": "kconfig",
+          "key": "CONFIG_HARDENED_USERCOPY",
+          "op": "equals",
+          "value": "y"
+        }
+      ]
+    },
+    {
+      "id": "KSPECT-KCONFIG-005",
+      "title": "FORTIFY_SOURCE enabled",
+      "severity": "medium",
+      "tags": [
+        "kconfig",
+        "memory-safety",
+        "kspp",
+        "server",
+        "container-host",
+        "workstation"
+      ],
+      "rationale": "Compile-time and runtime bounds checking of common string/memory functions inside the kernel.",
+      "remediation": "Use a kernel built with CONFIG_FORTIFY_SOURCE=y.",
+      "refs": [
+        "https://kspp.github.io/Recommended_Settings"
+      ],
+      "checks": [
+        {
+          "source": "kconfig",
+          "key": "CONFIG_FORTIFY_SOURCE",
+          "op": "equals",
+          "value": "y"
+        }
+      ]
+    },
+    {
+      "id": "KSPECT-KCONFIG-006",
+      "title": "SLAB freelists randomized and hardened",
+      "severity": "medium",
+      "tags": [
+        "kconfig",
+        "memory-safety",
+        "kspp",
+        "server",
+        "container-host",
+        "workstation"
+      ],
+      "rationale": "Randomized, integrity-checked allocator freelists disrupt deterministic heap grooming used by kernel heap exploits.",
+      "remediation": "Use a kernel built with CONFIG_SLAB_FREELIST_RANDOM=y and CONFIG_SLAB_FREELIST_HARDENED=y.",
+      "refs": [
+        "https://kspp.github.io/Recommended_Settings"
+      ],
+      "checks": [
+        {
+          "source": "kconfig",
+          "key": "CONFIG_SLAB_FREELIST_HARDENED",
+          "op": "equals",
+          "value": "y"
+        }
+      ]
+    },
+    {
+      "id": "KSPECT-KCONFIG-007",
+      "title": "Lockdown LSM available",
+      "severity": "medium",
+      "tags": [
+        "kconfig",
+        "integrity",
+        "server",
+        "container-host"
+      ],
+      "rationale": "The lockdown LSM prevents even root from modifying the running kernel (kexec, /dev/mem, unsigned modules), protecting kernel integrity after userspace compromise.",
+      "remediation": "Use a kernel built with CONFIG_SECURITY_LOCKDOWN_LSM=y.",
+      "refs": [
+        "https://docs.kernel.org/security/lockdown.html"
+      ],
+      "checks": [
+        {
+          "source": "kconfig",
+          "key": "CONFIG_SECURITY_LOCKDOWN_LSM",
+          "op": "equals",
+          "value": "y"
+        }
+      ]
+    },
+    {
+      "id": "KSPECT-KCONFIG-008",
+      "title": "Unprivileged BPF off by default at build time",
+      "severity": "medium",
+      "tags": [
+        "kconfig",
+        "attack-surface",
+        "kspp",
+        "server",
+        "container-host"
+      ],
+      "rationale": "CONFIG_BPF_UNPRIV_DEFAULT_OFF=y makes the safe sysctl value the boot default instead of relying on early userspace to set it.",
+      "remediation": "Use a kernel built with CONFIG_BPF_UNPRIV_DEFAULT_OFF=y.",
+      "refs": [
+        "https://kspp.github.io/Recommended_Settings"
+      ],
+      "checks": [
+        {
+          "source": "kconfig",
+          "key": "CONFIG_BPF_UNPRIV_DEFAULT_OFF",
+          "op": "equals",
+          "value": "y"
+        }
+      ]
+    },
+    {
+      "id": "KSPECT-KCONFIG-009",
+      "title": "Direct physical memory access restricted",
+      "severity": "high",
+      "tags": [
+        "kconfig",
+        "integrity",
+        "server",
+        "container-host",
+        "workstation"
+      ],
+      "rationale": "An unrestricted /dev/mem lets root (or a compromised privileged process) read and patch arbitrary physical memory, including the kernel.",
+      "remediation": "Use a kernel with CONFIG_DEVMEM disabled or CONFIG_STRICT_DEVMEM=y.",
+      "refs": [
+        "https://kspp.github.io/Recommended_Settings"
+      ],
+      "checks": [
+        {
+          "source": "kconfig",
+          "key": "CONFIG_DEVMEM",
+          "op": "equals",
+          "value": "n"
+        },
+        {
+          "source": "kconfig",
+          "key": "CONFIG_STRICT_DEVMEM",
+          "op": "equals",
+          "value": "y"
+        }
+      ]
+    },
+    {
+      "id": "KSPECT-KCONFIG-010",
+      "title": "Module signature verification built in",
+      "severity": "medium",
+      "tags": [
+        "kconfig",
+        "integrity",
+        "server",
+        "container-host"
+      ],
+      "rationale": "Signed modules prevent loading of tampered or attacker-built kernel modules (a classic rootkit vector).",
+      "remediation": "Use a kernel built with CONFIG_MODULE_SIG=y; enforce with CONFIG_MODULE_SIG_FORCE=y or module.sig_enforce=1.",
+      "refs": [
+        "https://docs.kernel.org/admin-guide/module-signing.html"
+      ],
+      "checks": [
+        {
+          "source": "kconfig",
+          "key": "CONFIG_MODULE_SIG",
+          "op": "equals",
+          "value": "y"
+        }
+      ]
+    },
+    {
+      "id": "KSPECT-KCONFIG-011",
+      "title": "Legacy vsyscall page disabled",
+      "severity": "medium",
+      "tags": [
+        "kconfig",
+        "memory-safety",
+        "kspp",
+        "server",
+        "workstation"
+      ],
+      "rationale": "The fixed-address legacy vsyscall page is a ready-made ROP gadget region that defeats ASLR.",
+      "remediation": "Use CONFIG_LEGACY_VSYSCALL_NONE=y or boot with vsyscall=none.",
+      "refs": [
+        "https://kspp.github.io/Recommended_Settings"
+      ],
+      "checks": [
+        {
+          "source": "kconfig",
+          "key": "CONFIG_LEGACY_VSYSCALL_NONE",
+          "op": "equals",
+          "value": "y"
+        },
+        {
+          "source": "cmdline",
+          "key": "vsyscall",
+          "op": "equals",
+          "value": "none"
+        }
+      ]
+    },
+    {
+      "id": "KSPECT-MITIG-001",
+      "title": "No unmitigated CPU vulnerabilities",
+      "severity": "high",
+      "tags": [
+        "cpu",
+        "mitigations",
+        "server",
+        "container-host",
+        "workstation"
+      ],
+      "rationale": "Entries under /sys/devices/system/cpu/vulnerabilities reporting 'Vulnerable' indicate hardware attacks (transient execution, MDS, Retbleed, ...) that the running kernel is not mitigating.",
+      "remediation": "Update the kernel and CPU microcode; remove any mitigation-disabling boot parameters.",
+      "refs": [
+        "https://docs.kernel.org/admin-guide/hw-vuln/index.html"
+      ],
+      "checks": [
+        {
+          "source": "mitigation",
+          "key": "*",
+          "op": "not_contains",
+          "value": "Vulnerable"
+        }
+      ]
+    },
+    {
+      "id": "KSPECT-LSM-001",
+      "title": "A major LSM is active (SELinux/AppArmor/Smack/TOMOYO)",
+      "severity": "high",
+      "tags": [
+        "lsm",
+        "server",
+        "container-host",
+        "workstation"
+      ],
+      "rationale": "Mandatory access control confines services and containers, containing the blast radius of userspace compromise. Its absence removes an entire defense layer.",
+      "remediation": "Enable AppArmor or SELinux for your distribution and verify with: cat /sys/kernel/security/lsm",
+      "refs": [
+        "https://docs.kernel.org/admin-guide/LSM/index.html"
+      ],
+      "checks": [
+        {
+          "source": "securityfs",
+          "key": "lsm",
+          "op": "contains",
+          "value": "apparmor"
+        },
+        {
+          "source": "securityfs",
+          "key": "lsm",
+          "op": "contains",
+          "value": "selinux"
+        },
+        {
+          "source": "securityfs",
+          "key": "lsm",
+          "op": "contains",
+          "value": "smack"
+        },
+        {
+          "source": "securityfs",
+          "key": "lsm",
+          "op": "contains",
+          "value": "tomoyo"
+        }
+      ]
+    },
+    {
+      "id": "KSPECT-LSM-002",
+      "title": "Yama LSM stacked",
+      "severity": "medium",
+      "tags": [
+        "lsm",
+        "server",
+        "container-host",
+        "workstation"
+      ],
+      "rationale": "Yama provides the ptrace_scope restriction; without it kernel.yama.ptrace_scope does not exist.",
+      "remediation": "Boot with lsm=...,yama (default on most distributions).",
+      "refs": [
+        "https://docs.kernel.org/admin-guide/LSM/Yama.html"
+      ],
+      "checks": [
+        {
+          "source": "securityfs",
+          "key": "lsm",
+          "op": "contains",
+          "value": "yama"
+        }
+      ]
+    },
+    {
+      "id": "KSPECT-LOCKDOWN-001",
+      "title": "Kernel lockdown mode active",
+      "severity": "low",
+      "tags": [
+        "integrity",
+        "hardened",
+        "server"
+      ],
+      "rationale": "Lockdown in integrity or confidentiality mode stops root from modifying (or reading) the running kernel, hardening the root\u2192kernel boundary.",
+      "remediation": "Boot with lockdown=integrity (typically automatic under Secure Boot).",
+      "refs": [
+        "https://docs.kernel.org/security/lockdown.html"
+      ],
+      "checks": [
+        {
+          "source": "securityfs",
+          "key": "lockdown",
+          "op": "one_of",
+          "values": [
+            "integrity",
+            "confidentiality"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "KSPECT-MODULE-001",
+      "title": "DCCP protocol module not loaded",
+      "severity": "medium",
+      "tags": [
+        "module",
+        "attack-surface",
+        "network",
+        "server",
+        "container-host"
+      ],
+      "rationale": "DCCP is an obscure, rarely-used protocol with a history of remotely-reachable kernel bugs (e.g. CVE-2017-6074 double-free LPE).",
+      "remediation": "Blacklist it: echo 'install dccp /bin/false' > /etc/modprobe.d/kspect-dccp.conf",
+      "refs": [
+        "https://www.cisecurity.org/benchmark/distribution_independent_linux"
+      ],
+      "checks": [
+        {
+          "source": "module",
+          "key": "dccp",
+          "op": "absent"
+        }
+      ]
+    },
+    {
+      "id": "KSPECT-MODULE-002",
+      "title": "RDS protocol module not loaded",
+      "severity": "medium",
+      "tags": [
+        "module",
+        "attack-surface",
+        "network",
+        "server",
+        "container-host"
+      ],
+      "rationale": "RDS has produced multiple local privilege escalations (e.g. CVE-2010-3904) and is unnecessary outside Oracle RAC clusters.",
+      "remediation": "Blacklist it: echo 'install rds /bin/false' > /etc/modprobe.d/kspect-rds.conf",
+      "refs": [
+        "https://www.cisecurity.org/benchmark/distribution_independent_linux"
+      ],
+      "checks": [
+        {
+          "source": "module",
+          "key": "rds",
+          "op": "absent"
+        }
+      ]
+    },
+    {
+      "id": "KSPECT-MODULE-003",
+      "title": "TIPC protocol module not loaded",
+      "severity": "medium",
+      "tags": [
+        "module",
+        "attack-surface",
+        "network",
+        "server",
+        "container-host"
+      ],
+      "rationale": "TIPC is a niche cluster protocol with recent remotely-triggerable heap overflows (CVE-2021-43267, CVE-2022-0435).",
+      "remediation": "Blacklist it: echo 'install tipc /bin/false' > /etc/modprobe.d/kspect-tipc.conf",
+      "refs": [
+        "https://www.cisecurity.org/benchmark/distribution_independent_linux"
+      ],
+      "checks": [
+        {
+          "source": "module",
+          "key": "tipc",
+          "op": "absent"
+        }
+      ]
+    },
+    {
+      "id": "KSPECT-MODULE-004",
+      "title": "SCTP protocol module not loaded",
+      "severity": "low",
+      "tags": [
+        "module",
+        "attack-surface",
+        "network",
+        "server"
+      ],
+      "rationale": "SCTP enlarges the remotely-reachable kernel attack surface; disable it unless telecom/WebRTC workloads require it.",
+      "remediation": "Blacklist it: echo 'install sctp /bin/false' > /etc/modprobe.d/kspect-sctp.conf",
+      "refs": [
+        "https://www.cisecurity.org/benchmark/distribution_independent_linux"
+      ],
+      "checks": [
+        {
+          "source": "module",
+          "key": "sctp",
+          "op": "absent"
+        }
+      ]
+    }
+  ]
+}

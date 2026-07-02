@@ -1,0 +1,21 @@
+# Gate a self-hosted runner / VM image build on kernel posture, and
+# surface findings in GitHub code scanning.
+name: kernel-posture
+on: [push]
+jobs:
+  kspect:
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+    steps:
+      - name: Install kspect
+        run: |
+          curl -sSLo kspect https://github.com/5h4rk-lab/kspect/releases/latest/download/kspect_linux_amd64
+          chmod +x kspect
+      - name: Scan (gate on high severity)
+        run: sudo ./kspect scan --tags container-host --fail-on high --format sarif > kspect.sarif
+      - name: Upload to code scanning
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: kspect.sarif

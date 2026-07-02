@@ -1,0 +1,18 @@
+# /etc/systemd/system/kspect-drift.service
+[Unit]
+Description=kspect kernel posture drift check
+Documentation=https://github.com/5h4rk-lab/kspect
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/kspect diff /var/lib/kspect/golden.json --format json
+# exit 2 = drift -> unit fails -> visible in systemctl --failed / alerting
+SuccessExitStatus=0
+# Hardening for the auditor itself
+ProtectSystem=strict
+ReadOnlyPaths=/
+ReadWritePaths=
+PrivateNetwork=yes
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+ProtectKernelModules=yes

@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://5h4rk-lab.github.io/kspect/sitemap.xml

@@ -1,0 +1,171 @@
+kspect scan — kernel 5.15.0-generic (x86_64)
+
+FAIL HIGH    KSPECT-CMDLINE-001   CPU vulnerability mitigations not globally disabled
+     observed: cmdline mitigations = "off"
+     expected: cmdline mitigations != off
+     fix:      Remove mitigations=off from the kernel command line and reboot.
+FAIL HIGH    KSPECT-CMDLINE-002   KASLR not disabled at boot
+     observed: cmdline nokaslr present (="")
+     expected: cmdline nokaslr absent
+     fix:      Remove nokaslr from the kernel command line.
+FAIL HIGH    KSPECT-CMDLINE-003   SMEP/SMAP not disabled at boot
+     observed: cmdline nosmep present (=""); cmdline nosmap absent
+     expected: cmdline nosmep absent AND cmdline nosmap absent
+     fix:      Remove nosmep and nosmap from the kernel command line.
+FAIL HIGH    KSPECT-LSM-001       A major LSM is active (SELinux/AppArmor/Smack/TOMOYO)
+     observed: securityfs lsm = "capability"
+     expected: securityfs lsm contains "apparmor" OR securityfs lsm contains "selinux" OR securityfs lsm contains "smack" OR securityfs lsm contains "tomoyo"
+     fix:      Enable AppArmor or SELinux for your distribution and verify with: cat /sys/kernel/security/lsm
+FAIL HIGH    KSPECT-MITIG-001     No unmitigated CPU vulnerabilities
+     observed: meltdown: Vulnerable; spectre_v2: Vulnerable, IBPB: disabled, STIBP: disabled
+     expected: cpu vulnerabilities not containing "Vulnerable"
+     fix:      Update the kernel and CPU microcode; remove any mitigation-disabling boot parameters.
+FAIL HIGH    KSPECT-SYSCTL-001    Kernel pointer addresses hidden from unprivileged users
+     observed: sysctl kernel.kptr_restrict = "0"
+     expected: sysctl kernel.kptr_restrict >= 1
+     fix:      sysctl -w kernel.kptr_restrict=2 and persist in /etc/sysctl.d/99-hardening.conf
+FAIL HIGH    KSPECT-SYSCTL-003    Unprivileged BPF disabled
+     observed: sysctl kernel.unprivileged_bpf_disabled = "0"
+     expected: sysctl kernel.unprivileged_bpf_disabled in {1, 2}
+     fix:      sysctl -w kernel.unprivileged_bpf_disabled=1
+FAIL HIGH    KSPECT-SYSCTL-005    kexec of new kernels disabled
+     observed: sysctl kernel.kexec_load_disabled = "0"
+     expected: sysctl kernel.kexec_load_disabled = 1
+     fix:      sysctl -w kernel.kexec_load_disabled=1 (one-way switch)
+FAIL HIGH    KSPECT-SYSCTL-009    Address space layout randomization fully enabled
+     observed: sysctl kernel.randomize_va_space = "0"
+     expected: sysctl kernel.randomize_va_space = 2
+     fix:      sysctl -w kernel.randomize_va_space=2
+FAIL MEDIUM  KSPECT-CMDLINE-006   Memory zeroed on allocation (init_on_alloc)
+     observed: cmdline init_on_alloc absent
+     expected: cmdline init_on_alloc = 1 OR CONFIG_INIT_ON_ALLOC_DEFAULT_ON = y
+     fix:      Add init_on_alloc=1 to the kernel command line, or build with CONFIG_INIT_ON_ALLOC_DEFAULT_ON=y.
+FAIL MEDIUM  KSPECT-KCONFIG-011   Legacy vsyscall page disabled
+     observed: cmdline vsyscall absent
+     expected: CONFIG_LEGACY_VSYSCALL_NONE = y OR cmdline vsyscall = none
+     fix:      Use CONFIG_LEGACY_VSYSCALL_NONE=y or boot with vsyscall=none.
+FAIL MEDIUM  KSPECT-LSM-002       Yama LSM stacked
+     observed: securityfs lsm = "capability"
+     expected: securityfs lsm contains "yama"
+     fix:      Boot with lsm=...,yama (default on most distributions).
+FAIL MEDIUM  KSPECT-MODULE-001    DCCP protocol module not loaded
+     observed: module dccp loaded
+     expected: module dccp absent
+     fix:      Blacklist it: echo 'install dccp /bin/false' > /etc/modprobe.d/kspect-dccp.conf
+FAIL MEDIUM  KSPECT-MODULE-003    TIPC protocol module not loaded
+     observed: module tipc loaded
+     expected: module tipc absent
+     fix:      Blacklist it: echo 'install tipc /bin/false' > /etc/modprobe.d/kspect-tipc.conf
+FAIL MEDIUM  KSPECT-SYSCTL-002    dmesg restricted to privileged users
+     observed: sysctl kernel.dmesg_restrict = "0"
+     expected: sysctl kernel.dmesg_restrict = 1
+     fix:      sysctl -w kernel.dmesg_restrict=1
+FAIL MEDIUM  KSPECT-SYSCTL-004    BPF JIT hardening enabled for all users
+     observed: sysctl net.core.bpf_jit_harden = "0"
+     expected: sysctl net.core.bpf_jit_harden = 2
+     fix:      sysctl -w net.core.bpf_jit_harden=2
+FAIL MEDIUM  KSPECT-SYSCTL-006    ptrace scope restricted
+     observed: sysctl kernel.yama.ptrace_scope = "0"
+     expected: sysctl kernel.yama.ptrace_scope >= 1
+     fix:      sysctl -w kernel.yama.ptrace_scope=1 (or higher)
+FAIL MEDIUM  KSPECT-SYSCTL-007    perf_event access restricted
+     observed: sysctl kernel.perf_event_paranoid = "1"
+     expected: sysctl kernel.perf_event_paranoid >= 2
+     fix:      sysctl -w kernel.perf_event_paranoid=3 (2 on kernels without the =3 patch)
+FAIL MEDIUM  KSPECT-SYSCTL-010    Unprivileged userfaultfd disabled
+     observed: sysctl vm.unprivileged_userfaultfd = "1"
+     expected: sysctl vm.unprivileged_userfaultfd = 0
+     fix:      sysctl -w vm.unprivileged_userfaultfd=0
+FAIL MEDIUM  KSPECT-SYSCTL-011    Symlink protection enabled
+     observed: sysctl fs.protected_symlinks = "0"
+     expected: sysctl fs.protected_symlinks = 1
+     fix:      sysctl -w fs.protected_symlinks=1
+FAIL MEDIUM  KSPECT-SYSCTL-012    Hardlink protection enabled
+     observed: sysctl fs.protected_hardlinks = "0"
+     expected: sysctl fs.protected_hardlinks = 1
+     fix:      sysctl -w fs.protected_hardlinks=1
+FAIL MEDIUM  KSPECT-SYSCTL-015    setuid core dumps disabled
+     observed: sysctl fs.suid_dumpable = "2"
+     expected: sysctl fs.suid_dumpable = 0
+     fix:      sysctl -w fs.suid_dumpable=0
+FAIL MEDIUM  KSPECT-SYSCTL-016    TTY line discipline autoloading disabled
+     observed: sysctl dev.tty.ldisc_autoload = "1"
+     expected: sysctl dev.tty.ldisc_autoload = 0
+     fix:      sysctl -w dev.tty.ldisc_autoload=0
+FAIL MEDIUM  KSPECT-SYSCTL-017    Minimum mmap address enforced
+     observed: sysctl vm.mmap_min_addr = "0"
+     expected: sysctl vm.mmap_min_addr >= 65536
+     fix:      sysctl -w vm.mmap_min_addr=65536
+FAIL MEDIUM  KSPECT-SYSCTL-019    TCP SYN cookies enabled
+     observed: sysctl net.ipv4.tcp_syncookies = "0"
+     expected: sysctl net.ipv4.tcp_syncookies = 1
+     fix:      sysctl -w net.ipv4.tcp_syncookies=1
+FAIL MEDIUM  KSPECT-SYSCTL-020    ICMP redirects not accepted
+     observed: sysctl net.ipv4.conf.all.accept_redirects = "1"
+     expected: sysctl net.ipv4.conf.all.accept_redirects = 0
+     fix:      sysctl -w net.ipv4.conf.all.accept_redirects=0 net.ipv4.conf.default.accept_redirects=0
+FAIL MEDIUM  KSPECT-SYSCTL-021    Source-routed packets not accepted
+     observed: sysctl net.ipv4.conf.all.accept_source_route = "1"
+     expected: sysctl net.ipv4.conf.all.accept_source_route = 0
+     fix:      sysctl -w net.ipv4.conf.all.accept_source_route=0
+FAIL LOW     KSPECT-CMDLINE-005   Slab merging disabled (slab_nomerge)
+     observed: cmdline slab_nomerge absent
+     expected: cmdline slab_nomerge present
+     fix:      Add slab_nomerge to the kernel command line.
+FAIL LOW     KSPECT-SYSCTL-008    Magic SysRq disabled or restricted
+     observed: sysctl kernel.sysrq = "1"
+     expected: sysctl kernel.sysrq = 0
+     fix:      sysctl -w kernel.sysrq=0
+FAIL LOW     KSPECT-SYSCTL-013    FIFO protection in world-writable directories
+     observed: sysctl fs.protected_fifos = "0"
+     expected: sysctl fs.protected_fifos >= 1
+     fix:      sysctl -w fs.protected_fifos=2
+FAIL LOW     KSPECT-SYSCTL-014    Regular-file protection in world-writable directories
+     observed: sysctl fs.protected_regular = "0"
+     expected: sysctl fs.protected_regular >= 1
+     fix:      sysctl -w fs.protected_regular=2
+NOTE INFO    KSPECT-SYSCTL-022    Unprivileged user namespaces surface (informational)
+     observed: sysctl user.max_user_namespaces = "15000"
+     expected: sysctl user.max_user_namespaces = 0
+     fix:      If not required: sysctl -w user.max_user_namespaces=0, or restrict via AppArmor/seccomp per workload.
+?    HIGH    KSPECT-KCONFIG-001   Kernel built with KASLR
+     observed: data source unavailable
+     expected: CONFIG_RANDOMIZE_BASE = y
+?    HIGH    KSPECT-KCONFIG-002   Strong stack protector enabled
+     observed: data source unavailable
+     expected: CONFIG_STACKPROTECTOR_STRONG = y
+?    HIGH    KSPECT-KCONFIG-003   Strict kernel memory permissions
+     observed: data source unavailable
+     expected: CONFIG_STRICT_KERNEL_RWX = y
+?    HIGH    KSPECT-KCONFIG-004   Hardened usercopy enabled
+     observed: data source unavailable
+     expected: CONFIG_HARDENED_USERCOPY = y
+?    HIGH    KSPECT-KCONFIG-009   Direct physical memory access restricted
+     observed: data source unavailable
+     expected: CONFIG_DEVMEM = n OR CONFIG_STRICT_DEVMEM = y
+?    MEDIUM  KSPECT-KCONFIG-005   FORTIFY_SOURCE enabled
+     observed: data source unavailable
+     expected: CONFIG_FORTIFY_SOURCE = y
+?    MEDIUM  KSPECT-KCONFIG-006   SLAB freelists randomized and hardened
+     observed: data source unavailable
+     expected: CONFIG_SLAB_FREELIST_HARDENED = y
+?    MEDIUM  KSPECT-KCONFIG-007   Lockdown LSM available
+     observed: data source unavailable
+     expected: CONFIG_SECURITY_LOCKDOWN_LSM = y
+?    MEDIUM  KSPECT-KCONFIG-008   Unprivileged BPF off by default at build time
+     observed: data source unavailable
+     expected: CONFIG_BPF_UNPRIV_DEFAULT_OFF = y
+?    MEDIUM  KSPECT-KCONFIG-010   Module signature verification built in
+     observed: data source unavailable
+     expected: CONFIG_MODULE_SIG = y
+?    MEDIUM  KSPECT-SYSCTL-018    io_uring restricted (kernel >= 6.6)
+     observed: sysctl kernel.io_uring_disabled not present on this kernel
+     expected: sysctl kernel.io_uring_disabled >= 1
+?    LOW     KSPECT-LOCKDOWN-001  Kernel lockdown mode active
+     observed: securityfs lockdown not present on this kernel
+     expected: securityfs lockdown in {integrity, confidentiality}
+?    INFO    KSPECT-SYSCTL-023    Module loading permanently disabled (strict environments)
+     observed: sysctl kernel.modules_disabled not present on this kernel
+     expected: sysctl kernel.modules_disabled = 1
+
+Summary: 48 checks — 32 fail, 3 pass, 13 unknown (9 high, 18 medium, 4 low, 1 info)

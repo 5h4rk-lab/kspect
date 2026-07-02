@@ -1,0 +1,11 @@
+# /etc/systemd/system/kspect-drift.timer
+[Unit]
+Description=Hourly kernel posture drift check
+
+[Timer]
+OnCalendar=hourly
+RandomizedDelaySec=5m
+Persistent=true
+
+[Install]
+WantedBy=timers.target
